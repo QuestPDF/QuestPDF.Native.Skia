@@ -170,7 +170,7 @@ void Decorations::calculatePosition(TextDecoration decoration, SkScalar ascent) 
                fFontMetrics.fUnderlinePosition > 0) {
             fPosition  = fFontMetrics.fUnderlinePosition;
           } else {
-            fPosition = fThickness;
+            fPosition = fFontMetrics.fXHeight / 4;
           }
           fPosition -= ascent;
           break;
