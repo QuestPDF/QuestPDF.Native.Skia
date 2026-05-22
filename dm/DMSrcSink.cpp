@@ -2025,7 +2025,8 @@ Result PDFSink::draw(const Src& src, SkBitmap*, SkWStream* dst, SkString*) const
     metadata.fCreator = "Skia/DM";
     metadata.fProducer = "Skia/PDF HEAD"; // Set producer to avoid SK_MILESTONE churn.
     metadata.fRasterDPI = fRasterDpi;
-    metadata.fPDFA = fPDFA;
+    metadata.fPDFAConformanceLevel = fPDFA ? SkPDF::Metadata::PDFA_Conformance::PDFA_2B 
+                                           : SkPDF::Metadata::PDFA_Conformance::None;
     metadata.jpegDecoder = SkPDF::JPEG::Decode;
     metadata.jpegEncoder = SkPDF::JPEG::Encode;
 #if SK_PDF_TEST_EXECUTOR

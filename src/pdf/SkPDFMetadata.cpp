@@ -232,6 +232,101 @@ SkString escape_xml(const SkString& input,
     return output;
 }
 
+void GetPDFAPartAndConformance(const SkPDF::Metadata& metadata, const char** part, const char** conformance) {
+    *part = "3";
+    *conformance = "B";
+
+    if (metadata.fPDFAConformance == SkPDF::Metadata::PDFA_Conformance::PDFA_1A) {
+        *part = "1";
+        *conformance = "A";
+    }
+    else if (metadata.fPDFAConformance == SkPDF::Metadata::PDFA_Conformance::PDFA_1B) {
+        *part = "1";
+        *conformance = "B";
+    }
+    else if (metadata.fPDFAConformance == SkPDF::Metadata::PDFA_Conformance::PDFA_2A) {
+        *part = "2";
+        *conformance = "A";
+    }
+    else if (metadata.fPDFAConformance == SkPDF::Metadata::PDFA_Conformance::PDFA_2B) {
+        *part = "2";
+        *conformance = "B";
+    }
+    else if (metadata.fPDFAConformance == SkPDF::Metadata::PDFA_Conformance::PDFA_2U) {
+        *part = "2";
+        *conformance = "U";
+    }
+    else if (metadata.fPDFAConformance == SkPDF::Metadata::PDFA_Conformance::PDFA_3A) {
+        *part = "3";
+        *conformance = "A";
+    }
+    else if (metadata.fPDFAConformance == SkPDF::Metadata::PDFA_Conformance::PDFA_3B) {
+        *part = "3";
+        *conformance = "B";
+    }
+    else if (metadata.fPDFAConformance == SkPDF::Metadata::PDFA_Conformance::PDFA_3U) {
+        *part = "3";
+        *conformance = "U";
+    }
+}
+
+SkString GetPDFAConformanceXML(const SkPDF::Metadata& metadata) {
+    if (metadata.fPDFAConformance == SkPDF::Metadata::PDFA_Conformance::None) {
+        return SkString();
+    }
+
+    const char* part;
+    const char* conformance;
+    GetPDFAPartAndConformance(metadata, &part, &conformance);
+
+    return SkStringPrintf(
+            "<rdf:Description rdf:about=\"\" xmlns:pdfaid=\"http://www.aiim.org/pdfa/ns/id/\">\n"
+            "  <pdfaid:part>%s</pdfaid:part>\n"
+            "  <pdfaid:conformance>%s</pdfaid:conformance>\n"
+            "</rdf:Description>\n",
+            part, conformance);
+}
+
+SkString GetPDFUAConformanceXML(const SkPDF::Metadata& metadata) {
+    if (metadata.fPDFUAConformance == SkPDF::Metadata::PDFUA_Conformance::None) {
+        return SkString();
+    }
+
+    const char* part = "1";
+
+    if (metadata.fPDFUAConformance == SkPDF::Metadata::PDFUA_Conformance::PDFUA_1) {
+        part = "1";
+    }
+
+    return SkStringPrintf(
+            "<rdf:Description rdf:about=\"\"\n"
+            " xmlns:pdfaExtension=\"http://www.aiim.org/pdfa/ns/extension/\"\n"
+            " xmlns:pdfaSchema=\"http://www.aiim.org/pdfa/ns/schema#\"\n"
+            " xmlns:pdfaProperty=\"http://www.aiim.org/pdfa/ns/property#\"\n"
+            " xmlns:pdfuaid=\"http://www.aiim.org/pdfua/ns/id/\">\n"
+            " <pdfaExtension:schemas>\n"
+            "  <rdf:Bag>\n"
+            "   <rdf:li rdf:parseType=\"Resource\">\n"
+            "    <pdfaSchema:schema>PDF/UA Universal Accessibility Schema</pdfaSchema:schema>\n"
+            "    <pdfaSchema:namespaceURI>http://www.aiim.org/pdfua/ns/id/</pdfaSchema:namespaceURI>\n"
+            "    <pdfaSchema:prefix>pdfuaid</pdfaSchema:prefix>\n"
+            "    <pdfaSchema:property>\n"
+            "     <rdf:Seq>\n"
+            "      <rdf:li rdf:parseType=\"Resource\">\n"
+            "       <pdfaProperty:name>part</pdfaProperty:name>\n"
+            "       <pdfaProperty:valueType>Integer</pdfaProperty:valueType>\n"
+            "       <pdfaProperty:category>internal</pdfaProperty:category>\n"
+            "       <pdfaProperty:description>Indicates, which part of ISO 14289 standard is followed</pdfaProperty:description>\n"
+            "      </rdf:li>\n"
+            "     </rdf:Seq>\n"
+            "    </pdfaSchema:property>\n"
+            "   </rdf:li>\n"
+            "  </rdf:Bag>\n"
+            "</pdfaExtension:schemas>\n"
+            "<pdfuaid:part>%s</pdfuaid:part>\n"
+        "</rdf:Description>", part);
+}
+
 SkPDFIndirectReference SkPDFMetadata::MakeXMPObject(
         const SkPDF::Metadata& metadata,
         const SkUUID& doc,
@@ -248,10 +343,7 @@ SkPDFIndirectReference SkPDFMetadata::MakeXMPObject(
             " xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"\n"
             " xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n"
             " xmlns:xmpMM=\"http://ns.adobe.com/xap/1.0/mm/\"\n"
-            " xmlns:pdf=\"http://ns.adobe.com/pdf/1.3/\"\n"
-            " xmlns:pdfaid=\"http://www.aiim.org/pdfa/ns/id/\">\n"
-            "<pdfaid:part>2</pdfaid:part>\n"
-            "<pdfaid:conformance>B</pdfaid:conformance>\n"
+            " xmlns:pdf=\"http://ns.adobe.com/pdf/1.3/\">\n"
             "%s"  // ModifyDate
             "%s"  // CreateDate
             "%s"  // xmp:CreatorTool
@@ -265,9 +357,14 @@ SkPDFIndirectReference SkPDFMetadata::MakeXMPObject(
             "%s"  // pdf:Producer
             "%s"  // pdf:Keywords
             "</rdf:Description>\n"
+            "%s"  // PDF/A description
+            "%s"  // PDF/UA description
             "</rdf:RDF>\n"
             "</x:xmpmeta>\n"  // Note:  the standard suggests 4k of padding.
             "<?xpacket end=\"w\"?>\n";
+
+    auto pdfaConformance = GetPDFAConformanceXML(metadata);
+    auto pdfuaConformance = GetPDFUAConformanceXML(metadata);
 
     SkString creationDate;
     SkString modificationDate;
@@ -314,12 +411,14 @@ SkPDFIndirectReference SkPDFMetadata::MakeXMPObject(
     SkString instanceID = uuid_to_string(instance);
     SkASSERT(0 == count_xml_escape_size(instanceID));
 
-
     auto value = SkStringPrintf(
-            templateString, modificationDate.c_str(), creationDate.c_str(),
+            templateString,
+            modificationDate.c_str(), creationDate.c_str(),
             creator.c_str(), title.c_str(), subject.c_str(), author.c_str(),
             keywords1.c_str(), documentID.c_str(), instanceID.c_str(),
-            producer.c_str(), keywords2.c_str());
+            producer.c_str(), keywords2.c_str(),
+            pdfaConformance.c_str(),
+            pdfuaConformance.c_str());
 
     std::unique_ptr<SkPDFDict> dict = SkPDFMakeDict("Metadata");
     dict->insertName("Subtype", "XML");
