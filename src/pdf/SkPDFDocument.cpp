@@ -279,7 +279,7 @@ SkCanvas* SkPDFDocument::onBeginPage(SkScalar width, SkScalar height) {
         }
 
         fInfoDict = this->emit(*SkPDFMetadata::MakeDocumentInformationDict(fMetadata));
-        if (fMetadata.fPDFA) {
+        if (fMetadata.requiresXMP()) {
             fUUID = SkPDFMetadata::CreateUUID(fMetadata);
             // We use the same UUID for Document ID and Instance ID since this
             // is the first revision of this document (and Skia does not
@@ -632,7 +632,7 @@ void SkPDFDocument::onClose(SkWStream* stream) {
         return;
     }
     auto docCatalog = SkPDFMakeDict("Catalog");
-    if (fMetadata.fPDFA) {
+    if (fMetadata.requiresXMP()) {
         SkASSERT(fXMP != SkPDFIndirectReference());
         docCatalog->insertRef("Metadata", fXMP);
         // Don't specify OutputIntents if we are not in PDF/A mode since

@@ -171,7 +171,7 @@ DEF_TEST(SkPDF_pdfa_document, r) {
     SkPDF::Metadata pdfMetadata;
     pdfMetadata.fTitle = "test document";
     pdfMetadata.fCreation = {0, 1999, 12, 5, 31, 23, 59, 59};
-    pdfMetadata.fPDFA = true;
+    pdfMetadata.fPDFAConformance = SkPDF::Metadata::PDFA_Conformance::PDFA_2B;
     pdfMetadata.jpegDecoder = SkPDF::JPEG::Decode;
     pdfMetadata.jpegEncoder = SkPDF::JPEG::Encode;
 
@@ -194,7 +194,7 @@ DEF_TEST(SkPDF_pdfa_document, r) {
         }
     }
     pdfMetadata.fProducer = "phoney library";
-    pdfMetadata.fPDFA = true;
+    pdfMetadata.fPDFAConformance = SkPDF::Metadata::PDFA_Conformance::PDFA_2B;
     doc = SkPDF::MakeDocument(&buffer, pdfMetadata);
     doc->beginPage(64, 64)->drawColor(SK_ColorRED);
     doc->close();
@@ -218,7 +218,7 @@ DEF_TEST(SkPDF_unicode_metadata, r) {
     pdfMetadata.fTitle   = "𝓐𝓑𝓒𝓓𝓔 𝓕𝓖𝓗𝓘𝓙"; // Out of basic multilingual plane
     pdfMetadata.fAuthor  = "ABCDE FGHIJ"; // ASCII
     pdfMetadata.fSubject = "αβγδε ζηθικ"; // inside  basic multilingual plane
-    pdfMetadata.fPDFA = true;
+    pdfMetadata.fPDFAConformance = SkPDF::Metadata::PDFA_Conformance::PDFA_2B;
     pdfMetadata.jpegDecoder = SkPDF::JPEG::Decode;
     pdfMetadata.jpegEncoder = SkPDF::JPEG::Encode;
 
