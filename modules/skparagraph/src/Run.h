@@ -478,7 +478,7 @@ public:
     }
 
     SkScalar height() const {
-        return ::round((double)fDescent - fAscent + fLeading);
+        return fDescent - fAscent + fLeading;
     }
 
     void update(SkScalar a, SkScalar d, SkScalar l) {
