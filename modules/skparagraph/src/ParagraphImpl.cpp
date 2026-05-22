@@ -241,6 +241,26 @@ void ParagraphImpl::layout(SkScalar rawWidth) {
     //SkDebugf("layout('%s', %f): %f %f\n", fText.c_str(), rawWidth, fMinIntrinsicWidth, fMaxIntrinsicWidth);
 }
 
+void ParagraphImpl::paintLines(SkCanvas* canvas, int from, int to) {
+    if (canvas == nullptr || from > to) {
+        return;
+    }
+
+    if (from < 0) {
+        from = 0;
+    }
+
+    if (to >= fLines.size()) {
+        to = fLines.size() - 1;
+    }
+
+    CanvasParagraphPainter painter(canvas);
+
+    for (int i = from; i <= to; ++i) {
+        fLines[i].paint(&painter, 0, 0);
+    }
+}
+
 void ParagraphImpl::paint(SkCanvas* canvas, SkScalar x, SkScalar y) {
     CanvasParagraphPainter painter(canvas);
     paint(&painter, x, y);

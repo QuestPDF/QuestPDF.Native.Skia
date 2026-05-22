@@ -106,6 +106,7 @@ public:
     ~ParagraphImpl() override;
 
     void layout(SkScalar width) override;
+    void paintLines(SkCanvas* canvas, int from, int to) override;
     void paint(SkCanvas* canvas, SkScalar x, SkScalar y) override;
     void paint(ParagraphPainter* canvas, SkScalar x, SkScalar y) override;
     std::vector<TextBox> getRectsForRange(unsigned start,

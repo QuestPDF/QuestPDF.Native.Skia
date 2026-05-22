@@ -41,6 +41,8 @@ public:
 
     virtual void layout(SkScalar width) = 0;
 
+    virtual void paintLines(SkCanvas* canvas, int from, int to) = 0;
+
     virtual void paint(SkCanvas* canvas, SkScalar x, SkScalar y) = 0;
 
     virtual void paint(ParagraphPainter* painter, SkScalar x, SkScalar y) = 0;
