@@ -145,11 +145,28 @@ struct Metadata {
     */
     SkScalar fRasterDPI = SK_ScalarDefaultRasterDPI;
 
-    /** If true, include XMP metadata, a document UUID, and sRGB output intent
-        information.  This adds length to the document and makes it
-        non-reproducable, but are necessary features for PDF/A-2b conformance
-    */
-    bool fPDFA = false;
+    /** PDF/A conformance level specification. */
+    enum class PDFA_Conformance : int {
+        None = 0,    // No PDF/A compliance
+        PDFA_1A = 1,  // PDF/A-1a
+        PDFA_1B = 2,  // PDF/A-1b
+        PDFA_2A = 3,  // PDF/A-2a
+        PDFA_2B = 4,  // PDF/A-2b
+        PDFA_2U = 5,  // PDF/A-2u
+        PDFA_3A = 6,  // PDF/A-3a
+        PDFA_3B = 7,  // PDF/A-3b
+        PDFA_3U = 8,  // PDF/A-3u
+    } fPDFAConformance = PDFA_Conformance::None;
+
+    /** PDF/UA conformance level specification. */
+    enum class PDFUA_Conformance : int {
+        None = 0,    // No PDF/UA compliance
+        PDFUA_1 = 1,  // PDF/UA-1
+    } fPDFUAConformance = PDFUA_Conformance::None;
+
+    bool requiresXMP() const {
+        return fPDFAConformance != PDFA_Conformance::None || fPDFUAConformance != PDFUA_Conformance::None;
+    }
 
     /** Encoding quality controls the trade-off between size and quality. By
         default this is set to 101 percent, which corresponds to lossless

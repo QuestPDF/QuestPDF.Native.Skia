@@ -238,7 +238,7 @@ static sk_sp<SkDocument> MakePDFDocument(const Config &config, SkWStream *wStrea
         SkPDFUtils::GetDateTime(&now);
         pdf_info.fCreation = now;
         pdf_info.fModified = now;
-        pdf_info.fPDFA = true;
+        pdf_info.fPDFAConformance = SkPDF::Metadata::PDFA_Conformance::PDFA_2B;
     #endif
     pdf_info.jpegDecoder = SkPDF::JPEG::Decode;
     pdf_info.jpegEncoder = SkPDF::JPEG::Encode;
