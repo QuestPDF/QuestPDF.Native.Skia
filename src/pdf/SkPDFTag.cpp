@@ -143,7 +143,7 @@ struct SkPDFStructElem {
                 return;
             }
             if (this->empty()) {
-                fData.emplace(ci, ci);
+                fData = Data{ci, ci};
                 return;
             }
             if (ci < fData->fFirst) {
@@ -485,7 +485,8 @@ SkPDFIndirectReference SkPDFStructElem::emitStructElem(
         }
         if (childSpans.size() > 1) {
             std::optional<ContentIndex> minFirstAfter;
-            for (auto&& childSpan : std::views::reverse(childSpans)) {
+            for (auto it = childSpans.rbegin(); it != childSpans.rend(); ++it) {
+                ChildSpan& childSpan = *it;
                 if (childSpan.fContentSpan.empty()) {
                     // Let empty child spans remain empty
                     continue;
