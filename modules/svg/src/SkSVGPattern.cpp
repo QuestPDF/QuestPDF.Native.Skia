@@ -29,7 +29,8 @@ bool SkSVGPattern::parseAndSetAttribute(const char* name, const char* value) {
            this->setHeight(SkSVGAttributeParser::parse<SkSVGLength>("height", name, value)) ||
            this->setPatternTransform(SkSVGAttributeParser::parse<SkSVGTransformType>(
                    "patternTransform", name, value)) ||
-           this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("xlink:href", name, value));
+           this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("xlink:href", name, value)) ||
+           this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("href", name, value));
 }
 
 const SkSVGPattern* SkSVGPattern::hrefTarget(const SkSVGRenderContext& ctx) const {
