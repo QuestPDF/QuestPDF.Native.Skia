@@ -275,21 +275,31 @@ bool SkSVGAttributeParser::parseHexColorToken(SkColor* c) {
     SkParse::FindHex(hexString.c_str(), &v);
 
     switch (hexString.size()) {
-    case 6:
-        // matched #xxxxxxx
-        break;
-    case 3:
-        // matched '#xxx;
-        v = ((v << 12) & 0x00f00000) |
-            ((v <<  8) & 0x000ff000) |
-            ((v <<  4) & 0x00000ff0) |
-            ((v <<  0) & 0x0000000f);
-        break;
-    default:
-        return false;
+        case 3: { // #RGB -> 0xFFRRGGBB
+            uint32_t r = (v >> 8) & 0xF;
+            uint32_t g = (v >> 4) & 0xF;
+            uint32_t b = v & 0xF;
+            *c = 0xFF000000 | (r << 20) | (r << 16) | (g << 12) | (g << 8) | (b << 4) | b;
+            break;
+        }
+        case 4: { // #RGBA -> 0xAARRGGBB
+            uint32_t r = (v >> 12) & 0xF;
+            uint32_t g = (v >> 8)  & 0xF;
+            uint32_t b = (v >> 4)  & 0xF;
+            uint32_t a = v         & 0xF;
+            *c = (a << 28) | (a << 24) | (r << 20) | (r << 16) | (g << 12) | (g << 8) | (b << 4) | b;
+            break;
+        }
+        case 6: // #RRGGBB -> 0xFFRRGGBB
+            *c = 0xFF000000 | v;
+            break;
+        case 8: // #RRGGBBAA -> rotate to 0xAARRGGBB
+            *c = (v >> 8) | (v << 24);
+            break;
+        default:
+            return false;
     }
 
-    *c = v | 0xff000000;
     fCurPos = hexEnd;
 
     restoreCurPos.clear();
