@@ -54,5 +54,6 @@ COMMON_ARGS='
     skia_use_fonthost_mac=true
     extra_cflags=["-fPIC", "-fno-rtti"]'
 
+mkdir -p out/release
 bin/gn gen out/release --args="$COMMON_ARGS"
 ninja -C out/release skia svg skparagraph skresources
