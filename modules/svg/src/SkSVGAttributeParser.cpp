@@ -254,6 +254,11 @@ bool SkSVGAttributeParser::parseNamedColorToken(SkColor* c) {
     if (!this->parseIdentToken(&ident)) {
         return false;
     }
+    if (ident.equals("transparent")) {
+        *c = SK_ColorTRANSPARENT;
+        restoreCurPos.clear();
+        return true;
+    }
     if (!SkParse::FindNamedColor(ident.c_str(), ident.size(), c)) {
         return false;
     }
