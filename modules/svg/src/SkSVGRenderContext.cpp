@@ -465,9 +465,16 @@ std::optional<SkPaint> SkSVGRenderContext::strokePaint() const {
     auto p = this->commonPaint(*props.fStroke, *props.fStrokeOpacity);
 
     if (p.has_value()) {
+        const auto strokeWidth = fLengthContext->resolve(*props.fStrokeWidth,
+                                                         SkSVGLengthContext::LengthType::kOther);
+        // In SVG a stroke-width of 0 disables the stroke entirely. Skia/PDF would otherwise
+        // interpret a width of 0 as a hairline, so treat it as "no stroke" instead.
+        if (strokeWidth <= 0) {
+            return std::nullopt;
+        }
+
         p->setStyle(SkPaint::kStroke_Style);
-        p->setStrokeWidth(fLengthContext->resolve(*props.fStrokeWidth,
-                                                  SkSVGLengthContext::LengthType::kOther));
+        p->setStrokeWidth(strokeWidth);
         p->setStrokeCap(toSkCap(*props.fStrokeLineCap));
         p->setStrokeJoin(toSkJoin(*props.fStrokeLineJoin));
         p->setStrokeMiter(*props.fStrokeMiterLimit);
