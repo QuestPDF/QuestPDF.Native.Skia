@@ -727,5 +727,6 @@ void SkSVGTextPath::onShapeText(const SkSVGRenderContext& ctx, SkSVGTextContext*
 bool SkSVGTextPath::parseAndSetAttribute(const char* name, const char* value) {
     return INHERITED::parseAndSetAttribute(name, value) ||
         this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("xlink:href", name, value)) ||
+        this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("href", name, value)) ||
         this->setStartOffset(SkSVGAttributeParser::parse<SkSVGLength>("startOffset", name, value));
 }

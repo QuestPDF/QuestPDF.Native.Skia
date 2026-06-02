@@ -27,6 +27,7 @@ bool SkSVGGradient::parseAndSetAttribute(const char* name, const char* value) {
            this->setGradientTransform(SkSVGAttributeParser::parse<SkSVGTransformType>(
                    "gradientTransform", name, value)) ||
            this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("xlink:href", name, value)) ||
+           this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("href", name, value)) ||
            this->setSpreadMethod(
                    SkSVGAttributeParser::parse<SkSVGSpreadMethod>("spreadMethod", name, value)) ||
            this->setGradientUnits(SkSVGAttributeParser::parse<SkSVGObjectBoundingBoxUnits>(
