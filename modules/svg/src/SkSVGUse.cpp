@@ -23,7 +23,8 @@ bool SkSVGUse::parseAndSetAttribute(const char* n, const char* v) {
     return INHERITED::parseAndSetAttribute(n, v) ||
            this->setX(SkSVGAttributeParser::parse<SkSVGLength>("x", n, v)) ||
            this->setY(SkSVGAttributeParser::parse<SkSVGLength>("y", n, v)) ||
-           this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("xlink:href", n, v));
+           this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("xlink:href", n, v)) ||
+           this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("href", n, v));
 }
 
 bool SkSVGUse::onPrepareToRender(SkSVGRenderContext* ctx) const {

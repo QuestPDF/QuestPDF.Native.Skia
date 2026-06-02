@@ -20,6 +20,7 @@
 bool SkSVGFeImage::parseAndSetAttribute(const char* n, const char* v) {
     return INHERITED::parseAndSetAttribute(n, v) ||
            this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("xlink:href", n, v)) ||
+           this->setHref(SkSVGAttributeParser::parse<SkSVGIRI>("href", n, v)) ||
            this->setPreserveAspectRatio(SkSVGAttributeParser::parse<SkSVGPreserveAspectRatio>(
                    "preserveAspectRatio", n, v));
 }
