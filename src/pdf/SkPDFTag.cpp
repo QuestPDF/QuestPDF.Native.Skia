@@ -735,8 +735,7 @@ struct Entry {
     struct Content {
         SkString fText;
         Location fLocation;
-        void accumulate(Content const& child) {
-            fText += child.fText;
+        void accumulateLocation(Content const& child) {
             fLocation.accumulate(child.fLocation);
         }
     };
@@ -794,25 +793,16 @@ struct Entry {
 };
 
 Entry::Content create_header_content(SkPDFStructElem* const structElem) {
-    SkString text;
-    if (!structElem->fTitle.isEmpty()) {
-        text = structElem->fTitle;
-    } else if (!structElem->fAlt.isEmpty()) {
-        text = structElem->fAlt;
-    }
-
     // The uppermost/leftmost point on the earliest page of this StructElem's marks.
     Location structElemLocation;
     for (auto&& mark : structElem->fMarkedContent) {
         structElemLocation.accumulate(mark.fLocation);
     }
 
-    Entry::Content content{std::move(text), std::move(structElemLocation)};
-
-    // Accumulate children
+    Entry::Content content{structElem->fAlt, std::move(structElemLocation)};
     for (auto&& child : structElem->fChildren) {
         if (child.fUsed) {
-            content.accumulate(create_header_content(&child));
+            content.accumulateLocation(create_header_content(&child));
         }
     }
     return content;
