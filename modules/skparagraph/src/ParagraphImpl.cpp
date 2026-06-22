@@ -696,7 +696,7 @@ void ParagraphImpl::breakShapedTextIntoLines(SkScalar maxWidth) {
                 if (this->paragraphStyle().getRenderSoftHyphens()) {
                     line.createSoftHyphen();
                 }
-                fLongestLine = std::max(fLongestLine, nearlyZero(line.width()) ? widthWithSpaces : line.width());
+                fLongestLine = std::max(fLongestLine, line.width());
             });
 
     fHeight = textWrapper.height();
