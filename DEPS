@@ -124,3 +124,20 @@ deps = {
     'condition': 'checkout_agents_internal',
   },
 }
+
+# QuestPDF: restrict tools/git-sync-deps to the dependencies required by our build configuration
+questpdf_required_deps = [
+  'third_party/externals/expat',
+  'third_party/externals/freetype',
+  'third_party/externals/harfbuzz',
+  'third_party/externals/icu',           # icu_bidi subset, used by skunicode for bidi
+  'third_party/externals/libgrapheme',
+  'third_party/externals/libjpeg-turbo',
+  'third_party/externals/libpng',
+  'third_party/externals/libwebp',
+  'third_party/externals/unicodetools',  # UCD data files consumed by libgrapheme
+  'third_party/externals/wuffs',         # GIF decoder
+  'third_party/externals/zlib',
+]
+
+deps = {path: dep for path, dep in deps.items() if path in questpdf_required_deps}
