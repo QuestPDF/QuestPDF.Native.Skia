@@ -22,27 +22,28 @@ config("c99") {
 # Ensure it will not be built for non-host even when implicitly building all targets.
 if (current_toolchain == "//gn/toolchain:$host_toolchain") {
   copy("copy_unicode_data") {
-    unicode_tools_dir =
-        "../externals/unicodetools/unicodetools/data/ucd/$UNICODE_VERSION"
+    # QuestPDF: the libgrapheme library bundles the UCD data files it needs,
+    # so read them from there and avoid syncing the huge unicodetools repository
+    unicode_data_dir = "../externals/libgrapheme/data"
     sources = [
-      "$unicode_tools_dir/BidiBrackets.txt",
-      "$unicode_tools_dir/BidiCharacterTest.txt",
-      "$unicode_tools_dir/BidiMirroring.txt",
-      "$unicode_tools_dir/BidiTest.txt",
-      "$unicode_tools_dir/DerivedCoreProperties.txt",
-      "$unicode_tools_dir/EastAsianWidth.txt",
-      "$unicode_tools_dir/LineBreak.txt",
-      "$unicode_tools_dir/SpecialCasing.txt",
-      "$unicode_tools_dir/UnicodeData.txt",
-      "$unicode_tools_dir/auxiliary/GraphemeBreakProperty.txt",
-      "$unicode_tools_dir/auxiliary/GraphemeBreakTest.txt",
-      "$unicode_tools_dir/auxiliary/LineBreakTest.txt",
-      "$unicode_tools_dir/auxiliary/SentenceBreakProperty.txt",
-      "$unicode_tools_dir/auxiliary/SentenceBreakTest.txt",
-      "$unicode_tools_dir/auxiliary/WordBreakProperty.txt",
-      "$unicode_tools_dir/auxiliary/WordBreakTest.txt",
-      "$unicode_tools_dir/emoji/emoji-data.txt",
-      "$unicode_tools_dir/extracted/DerivedBidiClass.txt",
+      "$unicode_data_dir/BidiBrackets.txt",
+      "$unicode_data_dir/BidiCharacterTest.txt",
+      "$unicode_data_dir/BidiMirroring.txt",
+      "$unicode_data_dir/BidiTest.txt",
+      "$unicode_data_dir/DerivedBidiClass.txt",
+      "$unicode_data_dir/DerivedCoreProperties.txt",
+      "$unicode_data_dir/EastAsianWidth.txt",
+      "$unicode_data_dir/GraphemeBreakProperty.txt",
+      "$unicode_data_dir/GraphemeBreakTest.txt",
+      "$unicode_data_dir/LineBreak.txt",
+      "$unicode_data_dir/LineBreakTest.txt",
+      "$unicode_data_dir/SentenceBreakProperty.txt",
+      "$unicode_data_dir/SentenceBreakTest.txt",
+      "$unicode_data_dir/SpecialCasing.txt",
+      "$unicode_data_dir/UnicodeData.txt",
+      "$unicode_data_dir/WordBreakProperty.txt",
+      "$unicode_data_dir/WordBreakTest.txt",
+      "$unicode_data_dir/emoji-data.txt",
     ]
     outputs =
         [ "$root_gen_dir/third_party/libgrapheme/data/{{source_file_part}}" ]

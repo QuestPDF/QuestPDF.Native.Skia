@@ -135,7 +135,6 @@ questpdf_required_deps = [
   'third_party/externals/libjpeg-turbo',
   'third_party/externals/libpng',
   'third_party/externals/libwebp',
-  'third_party/externals/unicodetools',  # UCD data files consumed by libgrapheme
   'third_party/externals/wuffs',         # GIF decoder
   'third_party/externals/zlib',
 ]
