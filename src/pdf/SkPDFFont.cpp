@@ -314,7 +314,13 @@ const std::vector<SkUnichar>& SkPDFFont::GetUnicodeMap(const SkTypeface& typefac
         return *ptr;
     }
     std::vector<SkUnichar> buffer(typeface.countGlyphs());
-    typeface.getGlyphToUnicodeMap(buffer);
+
+    // Prefer reading the map from the font data itself; the platform font hosts are not
+    // always reliable under concurrent use (DirectWrite can return an all-zero map).
+    if (!SkPDFComputeGlyphToUnicodeMap(typeface, buffer)) {
+        typeface.getGlyphToUnicodeMap(buffer);
+    }
+
     return *canon->fToUnicodeMap.set(id, std::move(buffer));
 }
 
