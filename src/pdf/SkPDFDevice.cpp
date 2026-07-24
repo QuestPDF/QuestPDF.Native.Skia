@@ -777,15 +777,19 @@ class GlyphPositioner {
 public:
     GlyphPositioner(SkDynamicMemoryWStream* content,
                     SkScalar textSkewX,
-                    SkPoint origin)
+                    SkPoint origin,
+                    SkScalar textSize,
+                    SkScalar textScaleX)
         : fContent(content)
         , fCurrentMatrixOrigin(origin)
+        // A TJ array adjustment of 1 moves the pen by textSize * Tz/100 / 1000 text-space units.
+        , fTextSpacePerTJUnit(textSize * textScaleX / 1000)
         , fTextSkewX(textSkewX) {
     }
     ~GlyphPositioner() { this->flush(); }
     void flush() {
         if (fInText) {
-            fContent->writeText("> Tj\n");
+            fContent->writeText(">] TJ\n");
             fInText = false;
         }
     }
@@ -814,21 +818,33 @@ public:
         }
         SkPoint position = xy - fCurrentMatrixOrigin;
         if (!fViewersAgreeOnXAdvance || position != SkPoint{fXAdvance, 0}) {
-            this->flush();
-            SkPDFUtils::AppendScalar(position.x() - position.y() * fTextSkewX, fContent);
-            fContent->writeText(" ");
-            SkPDFUtils::AppendScalar(-position.y(), fContent);
-            fContent->writeText(" Td ");
-            fCurrentMatrixOrigin = xy;
-            fXAdvance = 0;
-            fViewersAgreeOnXAdvance = true;
+            if (fInText && fViewersAgreeOnXAdvance && position.y() == 0 &&
+                fTextSpacePerTJUnit != 0) {
+                // Absorb horizontal drift with a TJ adjustment to keep the run in a single
+                // show-text operator; splitting it with Td degrades text extraction,
+                // selection, and search in viewers.
+                SkScalar adjustment = (fXAdvance - position.x()) / fTextSpacePerTJUnit;
+                fContent->writeText("> ");
+                SkPDFUtils::AppendScalar(adjustment, fContent);
+                fContent->writeText(" <");
+                fXAdvance = position.x();
+            } else {
+                this->flush();
+                SkPDFUtils::AppendScalar(position.x() - position.y() * fTextSkewX, fContent);
+                fContent->writeText(" ");
+                SkPDFUtils::AppendScalar(-position.y(), fContent);
+                fContent->writeText(" Td ");
+                fCurrentMatrixOrigin = xy;
+                fXAdvance = 0;
+                fViewersAgreeOnXAdvance = true;
+            }
         }
         fXAdvance += advanceWidth;
         if (!fViewersAgreeOnAdvancesInFont) {
             fViewersAgreeOnXAdvance = false;
         }
         if (!fInText) {
-            fContent->writeText("<");
+            fContent->writeText("[<");
             fInText = true;
         }
         if (fPDFFont->multiByteGlyphs()) {
@@ -844,6 +860,7 @@ private:
     SkPDFFont* fPDFFont = nullptr;
     SkPoint fCurrentMatrixOrigin;
     SkScalar fXAdvance = 0.0f;
+    SkScalar fTextSpacePerTJUnit;
     bool fViewersAgreeOnAdvancesInFont = true;
     bool fViewersAgreeOnXAdvance = true;
     SkScalar fTextSkewX;
@@ -1009,7 +1026,8 @@ void SkPDFDevice::internalDrawGlyphRun(
         out->writeText("/ReversedChars BMC\n");
     }
     SK_AT_SCOPE_EXIT(if (clusterator.reversedChars()) { out->writeText("EMC\n"); } );
-    GlyphPositioner glyphPositioner(out, glyphRunFont.getSkewX(), offset);
+    GlyphPositioner glyphPositioner(out, glyphRunFont.getSkewX(), offset,
+                                    textSize, glyphRunFont.getScaleX());
     SkPDFFont* font = nullptr;
 
     SkBulkGlyphMetricsAndPaths paths{pdfStrike->fPath.fStrikeSpec};
