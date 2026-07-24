@@ -197,6 +197,41 @@ bool SkPDFCanSubsetTableBasedFonts() {
     return hb_version_atleast(4, 4, 0);
 }
 
+bool SkPDFComputeGlyphToUnicodeMap(const SkTypeface& typeface, SkSpan<SkUnichar> glyphToUnicode) {
+    sk_bzero(glyphToUnicode.data(), glyphToUnicode.size_bytes());
+
+    int ttcIndex = 0;
+    std::unique_ptr<SkStreamAsset> typefaceAsset = typeface.openStream(&ttcIndex);
+    if (!typefaceAsset) {
+        return false;
+    }
+    HBFace face(stream_to_face(std::move(typefaceAsset), ttcIndex));
+    if (!face) {
+        return false;
+    }
+
+    using HBMap = std::unique_ptr<hb_map_t, SkFunctionObject<hb_map_destroy>>;
+    HBMap mapping(hb_map_create());
+    HBSet unicodes(hb_set_create());
+    hb_face_collect_nominal_glyph_mapping(face.get(), mapping.get(), unicodes.get());
+
+    // hb_set_next iterates in ascending order, so each glyph keeps the lowest codepoint that produces it
+    size_t mappedCount = 0;
+    hb_codepoint_t unichar = HB_SET_VALUE_INVALID;
+    while (hb_set_next(unicodes.get(), &unichar)) {
+        if (unichar > 0x10FFFF) {
+            continue;  // a malformed cmap can encode char codes beyond the Unicode range
+        }
+        hb_codepoint_t glyph = hb_map_get(mapping.get(), unichar);
+        if (0 < glyph && glyph < glyphToUnicode.size() && glyphToUnicode[glyph] == 0) {
+            glyphToUnicode[glyph] = SkTo<SkUnichar>(unichar);
+            ++mappedCount;
+        }
+    }
+    // no mappings means the cmap is missing or in a format HarfBuzz does not parse
+    return mappedCount != 0;
+}
+
 #else
 
 sk_sp<SkData> SkPDFSubsetFont(const SkTypeface&, const SkPDFGlyphUse&) {
@@ -204,6 +239,10 @@ sk_sp<SkData> SkPDFSubsetFont(const SkTypeface&, const SkPDFGlyphUse&) {
 }
 
 bool SkPDFCanSubsetTableBasedFonts() {
+    return false;
+}
+
+bool SkPDFComputeGlyphToUnicodeMap(const SkTypeface&, SkSpan<SkUnichar>) {
     return false;
 }
 
