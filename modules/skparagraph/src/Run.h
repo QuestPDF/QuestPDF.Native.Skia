@@ -138,7 +138,10 @@ public:
     }
     SkScalar calculateWidth(size_t start, size_t end, bool clip) const;
 
-    void copyTo(SkTextBlobBuilder& builder, size_t pos, size_t size) const;
+    // attachText also stores the source text and cluster mapping in the blob; the PDF
+    // backend needs them for ToUnicode and /ActualText. Keep it off for measurement-only
+    // and shadow blobs, or the extracted text gets duplicated.
+    void copyTo(SkTextBlobBuilder& builder, size_t pos, size_t size, bool attachText = false) const;
 
     template<typename Visitor>
     void iterateThroughClustersInTextOrder(Visitor visitor);
@@ -170,6 +173,10 @@ public:
 
     bool isResolved() const;
 private:
+    // Returns the utf8 text range (relative to fClusterStart) that produced glyphs
+    // [pos, pos + size), or EMPTY_TEXT when it cannot be mapped.
+    TextRange sourceTextRange(size_t pos, size_t size) const;
+
     friend class ParagraphImpl;
     friend class TextLine;
     friend class InternalLineMetrics;
