@@ -11,6 +11,8 @@
 #include "modules/skshaper/include/SkShaper.h"
 #include "src/base/SkUTF.h"
 
+#include <algorithm>
+
 namespace skia {
 namespace textlayout {
 
@@ -88,11 +90,58 @@ SkShaper::RunHandler::Buffer Run::newRunBuffer() {
     return {fGlyphs.data(), fPositions.data(), fOffsets.data(), fClusterIndexes.data(), fOffset};
 }
 
-void Run::copyTo(SkTextBlobBuilder& builder, size_t pos, size_t size) const {
+TextRange Run::sourceTextRange(size_t pos, size_t size) const {
+    // Ellipsis and hyphen runs come from synthetic strings, not the paragraph text.
+    if (fOwner == nullptr || fEllipsis || size == 0) {
+        return EMPTY_TEXT;
+    }
+    // Clusters are monotonic in glyph order (increasing for LTR, decreasing for RTL),
+    // with a sentinel past the last glyph — so the clusters just outside the glyph
+    // range give the text boundaries.
+    TextRange text;
+    if (this->leftToRight()) {
+        text.start = fClusterIndexes[pos];
+        text.end = fClusterIndexes[pos + size];
+    } else {
+        text.start = fClusterIndexes[pos + size - 1];
+        text.end = pos > 0 ? fClusterIndexes[pos - 1] : fUtf8Range.end();
+    }
+    if (text.start >= text.end || fClusterStart + text.end > fOwner->text().size()) {
+        return EMPTY_TEXT;
+    }
+    return text;
+}
+
+void Run::copyTo(SkTextBlobBuilder& builder, size_t pos, size_t size, bool attachText) const {
     SkASSERT(pos + size <= this->size());
-    const auto& blobBuffer = builder.allocRunPos(fFont, SkToInt(size));
+
+    // Attached text and clusters let the PDF backend emit correct ToUnicode and
+    // /ActualText for glyphs without cmap entries (ligatures, Arabic contextual forms).
+    const TextRange text = attachText ? this->sourceTextRange(pos, size) : EMPTY_TEXT;
+
+    const auto& blobBuffer = text.empty()
+        ? builder.allocRunPos(fFont, SkToInt(size))
+        : builder.allocRunTextPos(fFont, SkToInt(size), SkToInt(text.width()));
+
     sk_careful_memcpy(blobBuffer.glyphs, fGlyphs.data() + pos, size * sizeof(SkGlyphID));
 
+    // allocRunTextPos allocated two extra buffers that must be filled: utf8text gets
+    // the source text, and clusters[i] gets the offset in that text where glyph i's
+    // source character starts.
+    if (!text.empty()) {
+        sk_careful_memcpy(blobBuffer.utf8text,
+                          fOwner->text().data() + fClusterStart + text.start,
+                          text.width());
+        for (size_t i = 0; i < size; ++i) {
+            // Rebase onto the attached text; clamping matters only when a blob
+            // boundary splits a cluster.
+            size_t cluster = fClusterIndexes[i + pos];
+            cluster = std::min(std::max(cluster, text.start), text.end) - text.start;
+            blobBuffer.clusters[i] = SkToU32(cluster);
+        }
+    }
+
+    // Position = shaped position + justification shift + per-glyph offset.
     for (size_t i = 0; i < size; ++i) {
         auto point = fPositions[i + pos];
         if (!fJustificationShifts.empty()) {
