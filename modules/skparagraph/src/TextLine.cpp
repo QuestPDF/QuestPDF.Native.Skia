@@ -362,7 +362,7 @@ void TextLine::buildTextBlob(TextRange textRange, const TextStyle& style, const 
 
     // TODO: This is the change for flutter, must be removed later
     SkTextBlobBuilder builder;
-    context.run->copyTo(builder, SkToU32(context.pos), context.size);
+    context.run->copyTo(builder, SkToU32(context.pos), context.size, /*attachText=*/true);
     record.fClippingNeeded = context.clippingNeeded;
     if (context.clippingNeeded) {
         record.fClipRect = extendHeight(context).makeOffset(this->offset());
