@@ -51,6 +51,7 @@ COMMON_ARGS='
     skia_compile_modules=false
     skia_enable_ganesh=false
     skia_lex=false
+    skia_use_partition_alloc=false
     skia_use_fonthost_mac=true
     extra_cflags=["-fPIC", "-fno-rtti"]'
 
