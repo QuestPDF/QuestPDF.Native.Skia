@@ -18,7 +18,6 @@ void draw_line_as_rect(ParagraphPainter* painter, SkScalar x, SkScalar y, SkScal
     painter->drawFilledRect({x, y - radius, x + width, y + radius}, decorStyle);
 }
 
-const float kDoubleDecorationSpacing = 3.0f;
 }  // namespace
 
 void Decorations::paint(ParagraphPainter* painter, const TextStyle& textStyle, const TextLine::ClipContext& context, SkScalar baseline) {
@@ -56,13 +55,16 @@ void Decorations::paint(ParagraphPainter* painter, const TextStyle& textStyle, c
               break;
           }
           case TextDecorationStyle::kDouble: {
-              SkScalar bottom = y + kDoubleDecorationSpacing;
+              // The empty space between the two lines equals the line thickness, so the
+              // decoration forms three equal bands (line, gap, line) and scales with the
+              // font's underline thickness at any size.
+              SkScalar bottom = y + 2 * fThickness;
               if (drawGaps) {
                   SkScalar left = x - context.fTextShift;
                   painter->translate(context.fTextShift, 0);
-                  calculateGaps(context, SkRect::MakeXYWH(left, y, width, fThickness), baseline, fThickness);
+                  calculateGaps(context, SkRect::MakeXYWH(left, y - fThickness / 2, width, fThickness), baseline, fThickness);
                   painter->drawPath(fPath, fDecorStyle);
-                  calculateGaps(context, SkRect::MakeXYWH(left, bottom, width, fThickness), baseline, fThickness);
+                  calculateGaps(context, SkRect::MakeXYWH(left, bottom - fThickness / 2, width, fThickness), baseline, fThickness);
                   painter->drawPath(fPath, fDecorStyle);
               } else {
                   draw_line_as_rect(painter, x,      y, width, fDecorStyle);
@@ -75,7 +77,7 @@ void Decorations::paint(ParagraphPainter* painter, const TextStyle& textStyle, c
               if (drawGaps) {
                   SkScalar left = x - context.fTextShift;
                   painter->translate(context.fTextShift, 0);
-                  calculateGaps(context, SkRect::MakeXYWH(left, y, width, fThickness), baseline, 0);
+                  calculateGaps(context, SkRect::MakeXYWH(left, y - fThickness / 2, width, fThickness), baseline, 0);
                   painter->drawPath(fPath, fDecorStyle);
               } else {
                   painter->drawLine(x, y, x + width, y, fDecorStyle);
@@ -85,7 +87,7 @@ void Decorations::paint(ParagraphPainter* painter, const TextStyle& textStyle, c
               if (drawGaps) {
                   SkScalar left = x - context.fTextShift;
                   painter->translate(context.fTextShift, 0);
-                  calculateGaps(context, SkRect::MakeXYWH(left, y, width, fThickness), baseline, fThickness);
+                  calculateGaps(context, SkRect::MakeXYWH(left, y - fThickness / 2, width, fThickness), baseline, fThickness);
                   painter->drawPath(fPath, fDecorStyle);
               } else {
                   draw_line_as_rect(painter, x, y, width, fDecorStyle);
@@ -106,6 +108,7 @@ void Decorations::calculateGaps(const TextLine::ClipContext& context, const SkRe
     sk_sp<SkTextBlob> blob = builder.make();
     if (!blob) {
         // There is no text really
+        fPath.reset();
         return;
     }
     // Since we do not shift down the text by {baseline}
@@ -119,18 +122,19 @@ void Decorations::calculateGaps(const TextLine::ClipContext& context, const SkRe
     intersections.resize(count);
     blob->getIntercepts(bounds, intersections.data(), &decorPaint);
 
+    const SkScalar lineY = rect.centerY();
     SkPathBuilder path;
-    auto start = rect.fLeft;
-    path.moveTo(rect.fLeft, rect.fTop);
+    SkScalar start = rect.fLeft;
     for (int i = 0; i < intersections.size(); i += 2) {
-        auto end = intersections[i] - halo;
-        if (end - start >= halo) {
-            start = intersections[i + 1] + halo;
-            path.lineTo(end, rect.fTop).moveTo(start, rect.fTop);
+        SkScalar gapStart = intersections[i] - halo;
+        SkScalar gapEnd = intersections[i + 1] + halo;
+        if (gapStart - start >= halo) {
+            path.moveTo(start, lineY).lineTo(gapStart, lineY);
         }
+        start = std::max(start, gapEnd);
     }
-    if (!intersections.empty() && (rect.fRight - start > halo)) {
-        path.lineTo(rect.fRight, rect.fTop);
+    if (rect.fRight - start > halo) {
+        path.moveTo(start, lineY).lineTo(rect.fRight, lineY);
     }
     fPath = path.detach();
 }
@@ -167,6 +171,8 @@ void Decorations::calculatePosition(TextDecoration decoration, SkScalar ascent) 
           } else {
             fPosition = fFontMetrics.fXHeight / 4;
           }
+          // fUnderlinePosition is the distance from the baseline to the *top* of the stroke
+          fPosition += fThickness / 2;
           fPosition -= ascent;
           break;
       case TextDecoration::kOverline:
