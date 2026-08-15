@@ -5,7 +5,7 @@
 #include "modules/skparagraph/include/Paragraph.h"
 #include "modules/skparagraph/src/ParagraphImpl.h"
 #include "modules/skshaper/include/SkShaper_harfbuzz.h"
-#include "src/core/SkTHash.h"
+#include "src/core/SkLRUCache.h"
 
 namespace {
 #if defined(SK_BUILD_FOR_MAC) || defined(SK_BUILD_FOR_IOS)
@@ -13,6 +13,9 @@ namespace {
 #else
     const char* kColorEmojiLocale = "und-Zsye";
 #endif
+    // The typeface caches are keyed by the requested family lists, so a workload
+    // that keeps requesting new families would otherwise grow them without bound.
+    constexpr int kMaxTypefaceCacheCount = 256;
 }
 namespace skia {
 namespace textlayout {
@@ -47,7 +50,8 @@ struct FontCollection::FaceCache {
             }
         };
     };
-    skia_private::THashMap<FamilyKey, std::vector<sk_sp<SkTypeface>>, FamilyKey::Hasher> fTypefaces;
+    SkLRUCache<FamilyKey, std::vector<sk_sp<SkTypeface>>, FamilyKey::Hasher> fTypefaces{
+            kMaxTypefaceCacheCount};
 };
 
 struct FontCollection::VariationCache {
@@ -72,7 +76,7 @@ struct FontCollection::VariationCache {
             }
         };
     };
-    skia_private::THashMap<Key, sk_sp<SkTypeface>, Key::Hasher> fTypefaces;
+    SkLRUCache<Key, sk_sp<SkTypeface>, Key::Hasher> fTypefaces{kMaxTypefaceCacheCount};
 };
 
 FontCollection::FontCollection()
@@ -178,7 +182,7 @@ std::vector<sk_sp<SkTypeface>> FontCollection::findTypefaces(const std::vector<S
         }
     }
 
-    fFaceCache->fTypefaces.set(familyKey, typefaces);
+    fFaceCache->fTypefaces.insert(familyKey, typefaces);
     return typefaces;
 }
 
@@ -278,7 +282,7 @@ sk_sp<SkTypeface> FontCollection::cloneTypeface(const sk_sp<SkTypeface>& typefac
         return *found;
     }
     sk_sp<SkTypeface> clone = args.CloneTypeface(typeface);
-    fVariationCache->fTypefaces.set(variationKey, clone);
+    fVariationCache->fTypefaces.insert(variationKey, clone);
     return clone;
 }
 
