@@ -140,6 +140,8 @@ std::vector<sk_sp<SkTypeface>> FontCollection::findTypefaces(const std::vector<S
 }
 
 std::vector<sk_sp<SkTypeface>> FontCollection::findTypefaces(const std::vector<SkString>& familyNames, SkFontStyle fontStyle, const std::optional<FontArguments>& fontArgs) {
+    SkAutoMutexExclusive lock(fMutex);
+
     // Look inside the font collections cache first
     FaceCache::FamilyKey familyKey(familyNames, fontStyle, fontArgs);
     auto found = fFaceCache->fTypefaces.find(familyKey);
@@ -151,7 +153,7 @@ std::vector<sk_sp<SkTypeface>> FontCollection::findTypefaces(const std::vector<S
     for (const SkString& familyName : familyNames) {
         sk_sp<SkTypeface> match = matchTypeface(familyName, fontStyle);
         if (match && fontArgs) {
-            match = cloneTypeface(match, fontArgs.value());
+            match = cloneTypefaceLocked(match, fontArgs.value());
         }
         if (match) {
             typefaces.emplace_back(std::move(match));
@@ -176,7 +178,7 @@ std::vector<sk_sp<SkTypeface>> FontCollection::findTypefaces(const std::vector<S
         }
         if (match) {
             if (fontArgs) {
-                match = cloneTypeface(match, fontArgs.value());
+                match = cloneTypefaceLocked(match, fontArgs.value());
             }
             typefaces.emplace_back(std::move(match));
         }
@@ -276,6 +278,13 @@ sk_sp<SkTypeface> FontCollection::defaultFallback() {
 
 sk_sp<SkTypeface> FontCollection::cloneTypeface(const sk_sp<SkTypeface>& typeface,
                                                 const FontArguments& args) {
+    SkAutoMutexExclusive lock(fMutex);
+    return this->cloneTypefaceLocked(typeface, args);
+}
+
+sk_sp<SkTypeface> FontCollection::cloneTypefaceLocked(const sk_sp<SkTypeface>& typeface,
+                                                      const FontArguments& args) {
+    fMutex.assertHeld();
     VariationCache::Key variationKey(typeface->uniqueID(), args);
     auto found = fVariationCache->fTypefaces.find(variationKey);
     if (found) {
@@ -291,8 +300,11 @@ void FontCollection::enableFontFallback() { fEnableFontFallback = true; }
 
 void FontCollection::clearCaches() {
     fParagraphCache.reset();
-    fFaceCache->fTypefaces.reset();
-    fVariationCache->fTypefaces.reset();
+    {
+        SkAutoMutexExclusive lock(fMutex);
+        fFaceCache->fTypefaces.reset();
+        fVariationCache->fTypefaces.reset();
+    }
     SkShapers::HB::PurgeCaches();
 }
 
