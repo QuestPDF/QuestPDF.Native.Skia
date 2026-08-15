@@ -8,6 +8,7 @@
 #include "include/core/SkFontMgr.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkSpan.h"
+#include "include/private/SkMutex.h"
 #include "modules/skparagraph/include/FontArguments.h"
 #include "modules/skparagraph/include/ParagraphCache.h"
 #include "modules/skparagraph/include/TextStyle.h"
@@ -56,7 +57,11 @@ private:
     sk_sp<SkTypeface> matchTypeface(const SkString& familyName, SkFontStyle fontStyle);
 
     sk_sp<SkTypeface> cloneTypeface(const sk_sp<SkTypeface>& typeface, const FontArguments& args);
+    sk_sp<SkTypeface> cloneTypefaceLocked(const sk_sp<SkTypeface>& typeface, const FontArguments& args);
 
+    // Guards fFaceCache and fVariationCache; a FontCollection may be shared by
+    // paragraphs laid out on different threads.
+    mutable SkMutex fMutex;
     struct FaceCache;
     std::unique_ptr<FaceCache> fFaceCache;
     struct VariationCache;
