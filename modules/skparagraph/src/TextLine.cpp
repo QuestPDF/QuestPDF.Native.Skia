@@ -371,7 +371,7 @@ void TextLine::buildTextBlob(TextRange textRange, const TextStyle& style, const 
     }
 
     SkASSERT(nearlyEqual(context.run->baselineShift(), style.getBaselineShift()));
-    SkScalar correctedBaseline = SkScalarFloorToScalar(this->baseline() + style.getBaselineShift() +  0.5);
+    SkScalar correctedBaseline = this->baseline() + style.getBaselineShift();
     record.fBlob = builder.make();
     if (record.fBlob != nullptr) {
         record.fBounds.joinPossiblyEmptyRect(record.fBlob->bounds());
@@ -410,7 +410,7 @@ void TextLine::paintShadow(ParagraphPainter* painter,
                            TextRange textRange,
                            const TextStyle& style,
                            const ClipContext& context) const {
-    SkScalar correctedBaseline = SkScalarFloorToScalar(this->baseline() + style.getBaselineShift() + 0.5);
+    SkScalar correctedBaseline = this->baseline() + style.getBaselineShift();
 
     for (TextShadow shadow : style.getShadows()) {
         if (!shadow.hasShadow()) continue;
@@ -441,8 +441,7 @@ void TextLine::paintDecorations(ParagraphPainter* painter, SkScalar x, SkScalar 
     ParagraphPainterAutoRestore ppar(painter);
     painter->translate(x + this->offset().fX, y + this->offset().fY + style.getBaselineShift());
     Decorations decorations;
-    SkScalar correctedBaseline = SkScalarFloorToScalar(-this->sizes().rawAscent() + style.getBaselineShift() + 0.5);
-    decorations.paint(painter, style, context, correctedBaseline);
+    decorations.paint(painter, style, context, this->baseline());
 }
 
 void TextLine::justify(SkScalar maxWidth) {
