@@ -15,6 +15,9 @@ namespace {
 #else
     const char* kColorEmojiLocale = "und-Zsye";
 #endif
+    // QuestPDF: the typeface caches are keyed by the requested family lists, so a workload
+    // that keeps requesting new families would otherwise grow them without bound.
+    constexpr int kMaxTypefaceCacheCount = 256;
 }
 namespace skia {
 namespace textlayout {
@@ -51,8 +54,8 @@ struct FontCollection::FaceCache {
     };
     // Synchronize fTypefaces inside the pimpl struct to preserve FontCollection's ABI layout
     mutable SkMutex fMutex;
-    skia_private::THashMap<FamilyKey, std::vector<sk_sp<SkTypeface>>, FamilyKey::Hasher> fTypefaces
-            SK_GUARDED_BY(fMutex);
+    SkLRUCache<FamilyKey, std::vector<sk_sp<SkTypeface>>, FamilyKey::Hasher> fTypefaces
+            SK_GUARDED_BY(fMutex){kMaxTypefaceCacheCount};
 };
 
 struct FontCollection::VariationCache {
@@ -79,7 +82,8 @@ struct FontCollection::VariationCache {
     };
     // Synchronize fTypefaces inside the pimpl struct to preserve FontCollection's ABI layout
     mutable SkMutex fMutex;
-    skia_private::THashMap<Key, sk_sp<SkTypeface>, Key::Hasher> fTypefaces SK_GUARDED_BY(fMutex);
+    SkLRUCache<Key, sk_sp<SkTypeface>, Key::Hasher> fTypefaces SK_GUARDED_BY(fMutex){
+            kMaxTypefaceCacheCount};
 };
 
 // System fallback results for a codepoint (or an emoji start), shared by all paragraphs.
@@ -269,7 +273,7 @@ std::vector<sk_sp<SkTypeface>> FontCollection::findTypefaces(const std::vector<S
     if (auto* found = fFaceCache->fTypefaces.find(familyKey)) {
         return *found;
     }
-    fFaceCache->fTypefaces.set(familyKey, typefaces);
+    fFaceCache->fTypefaces.insert(familyKey, typefaces);
     return typefaces;
 }
 
@@ -406,7 +410,7 @@ sk_sp<SkTypeface> FontCollection::cloneTypeface(const sk_sp<SkTypeface>& typefac
     if (auto* found = fVariationCache->fTypefaces.find(variationKey)) {
         return *found;
     }
-    fVariationCache->fTypefaces.set(variationKey, clone);
+    fVariationCache->fTypefaces.insert(variationKey, clone);
     return clone;
 }
 
