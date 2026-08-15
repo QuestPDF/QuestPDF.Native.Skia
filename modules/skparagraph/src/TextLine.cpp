@@ -411,7 +411,7 @@ void TextLine::buildTextBlob(TextRange textRange, const TextStyle& style, const 
     }
 
     SkASSERT(nearlyEqual(context.run->baselineShift(), style.getBaselineShift()));
-    SkScalar correctedBaseline = SkScalarFloorToScalar(this->baseline() + style.getBaselineShift() +  0.5);
+    SkScalar correctedBaseline = this->baseline() + style.getBaselineShift();
     record.fBlob = builder.make();
     if (record.fBlob != nullptr) {
         record.fBounds.joinPossiblyEmptyRect(record.fBlob->bounds());
@@ -450,7 +450,7 @@ void TextLine::paintShadow(ParagraphPainter* painter,
                            TextRange textRange,
                            const TextStyle& style,
                            const ClipContext& context) const {
-    SkScalar correctedBaseline = SkScalarFloorToScalar(this->baseline() + style.getBaselineShift() + 0.5);
+    SkScalar correctedBaseline = this->baseline() + style.getBaselineShift();
 
     for (TextShadow shadow : style.getShadows()) {
         if (!shadow.hasShadow()) continue;
@@ -483,10 +483,7 @@ void TextLine::paintDecorations(ParagraphPainter* painter, SkScalar x, SkScalar 
     Decorations decorations;
     // Gaps are cut where glyphs cross the decoration, so they must be measured against the
     // baseline buildTextBlob() draws the text at, relative to the already shifted origin
-    SkScalar correctedBaseline =
-            SkScalarFloorToScalar(this->baseline() + style.getBaselineShift() + 0.5) -
-            style.getBaselineShift();
-    decorations.paint(painter, style, context, correctedBaseline);
+    decorations.paint(painter, style, context, this->baseline());
 }
 
 void TextLine::justify(SkScalar maxWidth) {

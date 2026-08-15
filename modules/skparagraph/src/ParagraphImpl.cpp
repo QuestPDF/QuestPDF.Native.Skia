@@ -1560,8 +1560,7 @@ void ParagraphImpl::extendedVisit(const ExtendedVisitor& visitor) {
                     if (context.size == 0) {
                         return;
                     }
-                    SkScalar correctedBaseline = SkScalarFloorToScalar(
-                        line.baseline() + style.getBaselineShift() + 0.5);
+                    SkScalar correctedBaseline = line.baseline() + style.getBaselineShift();
                     SkPoint offset =
                         SkPoint::Make(line.offset().fX + context.fTextShift,
                                       line.offset().fY + correctedBaseline);
@@ -1623,8 +1622,7 @@ int ParagraphImpl::getPath(int lineNumber, SkPath* dest) {
                   return;
               }
               const SkFont& font = run->font();
-              SkScalar correctedBaseline = SkScalarFloorToScalar(
-                line.baseline() + style.getBaselineShift() + 0.5);
+              SkScalar correctedBaseline = line.baseline() + style.getBaselineShift();
               SkPoint offset =
                   SkPoint::Make(line.offset().fX + context.fTextShift,
                                 line.offset().fY + correctedBaseline);
