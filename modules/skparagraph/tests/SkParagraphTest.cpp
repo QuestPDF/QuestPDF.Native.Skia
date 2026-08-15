@@ -2968,11 +2968,12 @@ DEF_TEST(SkParagraph_UnderlineGapsFollowDrawnGlyphs, reporter) {
             return;
         }
 
-        // Decorations::calculateGaps() intersects glyphs with [top, top + thickness]
-        // and keeps the underline one thickness (halo) away from every intersection
+        // Decorations::calculateGaps() intersects glyphs with the band the stroke covers,
+        // [center - thickness / 2, center + thickness / 2], and keeps the underline one
+        // thickness (halo) away from every intersection
         const SkScalar thickness = path.fPaint.getStrokeWidth();
-        const SkScalar top = path.fOrigin.fY + points[0].fY - blob.fOrigin.fY;
-        const SkScalar bounds[2] = {top, top + thickness};
+        const SkScalar center = path.fOrigin.fY + points[0].fY - blob.fOrigin.fY;
+        const SkScalar bounds[2] = {center - thickness / 2, center + thickness / 2};
         int count = blob.fBlob->getIntercepts(bounds, nullptr, &path.fPaint);
         std::vector<SkScalar> intercepts(count);
         blob.fBlob->getIntercepts(bounds, intercepts.data(), &path.fPaint);
