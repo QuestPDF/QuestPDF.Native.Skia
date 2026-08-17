@@ -1386,8 +1386,17 @@ private:
     SkMutex& fMutex;
 };
 static HBLockedFaceCache get_hbFace_cache() {
-    static SkMutex gHBFaceCacheMutex;
-    static SkLRUCache<SkTypefaceID, HBFont> gHBFaceCache(100);
+    // Each thread owns its own cache. The shaper reads this cache once per
+    // style run, so a process-wide mutex here would serialize shaping across
+    // threads during parallel document rendering (the same reasoning as in
+    // SkStrikeCache::GlobalStrikeCache). The mutex is kept only because
+    // HBLockedFaceCache expects one; it is never contended.
+    //
+    // Both thread_locals are destroyed on thread exit, releasing the cached
+    // hb_font_t handles. SkShapers::HB::PurgeCaches() purges the calling
+    // thread's cache only.
+    static thread_local SkMutex gHBFaceCacheMutex;
+    static thread_local SkLRUCache<SkTypefaceID, HBFont> gHBFaceCache(100);
     return HBLockedFaceCache(gHBFaceCache, gHBFaceCacheMutex);
 }
 
