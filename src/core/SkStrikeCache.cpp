@@ -27,13 +27,18 @@ struct SkFontMetrics;
 using namespace sktext;
 
 SkStrikeCache* SkStrikeCache::GlobalStrikeCache() {
-#if defined(SK_ENABLE_THREADLOCAL_STRIKECACHE)
-    static thread_local auto* cache = new SkStrikeCache;
-    return cache;
-#else
-    static auto* cache = new SkStrikeCache;
-    return cache;
-#endif
+    // QuestPDF: each thread owns its own strike cache. A process-wide cache would make
+    // every glyph lookup take the same mutex, and both text layout and PDF
+    // drawing perform these lookups constantly, so parallel document rendering
+    // would serialize on that mutex. Per-thread caches are safe here because a
+    // document renders entirely on one thread and strikes never cross threads.
+    //
+    // Unlike upstream's SK_ENABLE_THREADLOCAL_STRIKECACHE variant, which leaks a
+    // heap-allocated cache per thread, the value-type thread_local is destroyed on
+    // thread exit and returns the cache memory. SkGraphics::PurgeFontCache() and the
+    // font-cache limits apply to the calling thread only.
+    static thread_local SkStrikeCache cache;
+    return &cache;
 }
 
 auto SkStrikeCache::findOrCreateStrike(const SkStrikeSpec& strikeSpec) -> sk_sp<SkStrike> {
