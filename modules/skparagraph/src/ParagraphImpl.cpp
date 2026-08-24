@@ -308,6 +308,23 @@ bool ParagraphImpl::computeCodeUnitProperties() {
         return false;
     }
 
+    // Styles marked as "break anywhere" allow a line break between any two characters
+    // (the CSS 'word-break: break-all' behavior). Every grapheme start becomes a soft line break.
+    for (auto& block : fTextStyles) {
+        if (block.fRange.width() == 0 || !block.fStyle.getBreakAnywhere()) {
+            continue;
+        }
+        // Only the interior of the block gains break opportunities; its edges keep the
+        // regular UAX #14 behavior, matching how CSS scopes 'word-break' to the element
+        for (auto i = block.fRange.start + 1; i < block.fRange.end; ++i) {
+            if ((fCodeUnitProperties[i] & SkUnicode::CodeUnitFlags::kGraphemeStart) &&
+                !SkUnicode::hasPartOfWhiteSpaceBreakFlag(fCodeUnitProperties[i])) {
+                // Breaking before a whitespace would start the next line with it
+                fCodeUnitProperties[i] |= SkUnicode::CodeUnitFlags::kSoftLineBreakBefore;
+            }
+        }
+    }
+
     // Get some information about trailing spaces / hard line breaks
     fTrailingSpaces = fText.size();
     TextIndex firstWhitespace = EMPTY_INDEX;
