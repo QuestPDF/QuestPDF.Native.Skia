@@ -61,6 +61,9 @@ bool TextStyle::equals(const TextStyle& other) const {
     if (fHalfLeading != other.fHalfLeading) {
         return false;
     }
+    if (fBreakAnywhere != other.fBreakAnywhere) {
+        return false;
+    }
     if (fBaselineShift != other.fBaselineShift) {
         return false;
     }
@@ -111,6 +114,7 @@ bool TextStyle::equalsByFonts(const TextStyle& that) const {
            nearlyEqual(fHeight, that.fHeight) &&
            nearlyEqual(fBaselineShift, that.fBaselineShift) &&
            nearlyEqual(fFontSize, that.fFontSize) &&
+           fBreakAnywhere == that.fBreakAnywhere &&
            fLocale == that.fLocale;
 }
 
