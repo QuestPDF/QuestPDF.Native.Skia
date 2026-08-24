@@ -212,6 +212,7 @@ struct Metadata {
         Default = -1,
         None = 0,
         LowButFast = 1,
+        Optimal = 3,
         Average = 6,
         HighButSlow = 9,
     } fCompressionLevel = CompressionLevel::Default;
