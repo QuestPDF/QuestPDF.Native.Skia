@@ -80,6 +80,9 @@ bool TextStyle::equals(const TextStyle& other) const {
     if (fHalfLeading != other.fHalfLeading) {
         return false;
     }
+    if (fBreakAnywhere != other.fBreakAnywhere) {
+        return false;
+    }
     if (fBaselineShift != other.fBaselineShift) {
         return false;
     }
@@ -124,7 +127,9 @@ bool TextStyle::equalsByFonts(const TextStyle& that) const {
            shapeWithSameFont(*this, that) &&
            fFontFeatures == that.fFontFeatures &&
            nearlyEqual(fLetterSpacing, that.fLetterSpacing) &&
-           nearlyEqual(fWordSpacing, that.fWordSpacing);
+           nearlyEqual(fWordSpacing, that.fWordSpacing) &&
+           // The cache also keeps the line break opportunities, which this flag changes
+           fBreakAnywhere == that.fBreakAnywhere;
 }
 
 bool TextStyle::matchOneAttribute(StyleType styleType, const TextStyle& other) const {

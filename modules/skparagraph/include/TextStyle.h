@@ -266,6 +266,11 @@ public:
     void setHalfLeading(bool halfLeading) { fHalfLeading = halfLeading; }
     bool getHalfLeading() const { return fHalfLeading; }
 
+    // Allows a line break between any two characters inside the styled range
+    // (the CSS 'word-break: break-all' behavior)
+    void setBreakAnywhere(bool breakAnywhere) { fBreakAnywhere = breakAnywhere; }
+    bool getBreakAnywhere() const { return fBreakAnywhere; }
+
     void setLetterSpacing(SkScalar letterSpacing) { fLetterSpacing = letterSpacing; }
     SkScalar getLetterSpacing() const { return fLetterSpacing; }
 
@@ -323,6 +328,7 @@ private:
     // true: half leading.
     // false: scale ascent/descent with fHeight.
     bool fHalfLeading = false;
+    bool fBreakAnywhere = false;
     SkString fLocale = {};
     SkScalar fLetterSpacing = 0.0;
     SkScalar fWordSpacing = 0.0;
