@@ -1092,6 +1092,37 @@ bool SkSVGAttributeParser::parse(SkSVGTextAnchor* anchor) {
     return parsedValue && this->parseEOSToken();
 }
 
+// https://www.w3.org/TR/SVG11/text.html#DominantBaselineProperty
+template <>
+bool SkSVGAttributeParser::parse(SkSVGDominantBaseline* baseline) {
+    static constexpr std::tuple<const char*, SkSVGDominantBaseline::Type> gBaselineMap[] = {
+        { "auto"            , SkSVGDominantBaseline::Type::kAuto          },
+        { "use-script"      , SkSVGDominantBaseline::Type::kUseScript     },
+        { "no-change"       , SkSVGDominantBaseline::Type::kNoChange      },
+        { "reset-size"      , SkSVGDominantBaseline::Type::kResetSize     },
+        { "ideographic"     , SkSVGDominantBaseline::Type::kIdeographic   },
+        { "alphabetic"      , SkSVGDominantBaseline::Type::kAlphabetic    },
+        { "hanging"         , SkSVGDominantBaseline::Type::kHanging       },
+        { "mathematical"    , SkSVGDominantBaseline::Type::kMathematical  },
+        { "central"         , SkSVGDominantBaseline::Type::kCentral       },
+        { "middle"          , SkSVGDominantBaseline::Type::kMiddle        },
+        { "text-after-edge" , SkSVGDominantBaseline::Type::kTextAfterEdge },
+        { "text-bottom"     , SkSVGDominantBaseline::Type::kTextAfterEdge },
+        { "text-before-edge", SkSVGDominantBaseline::Type::kTextBeforeEdge},
+        { "text-top"        , SkSVGDominantBaseline::Type::kTextBeforeEdge},
+    };
+
+    bool parsedValue = false;
+    SkSVGDominantBaseline::Type type;
+
+    if (this->parseEnumMap(gBaselineMap, &type)) {
+        *baseline = SkSVGDominantBaseline(type);
+        parsedValue = true;
+    }
+
+    return parsedValue && this->parseEOSToken();
+}
+
 // https://www.w3.org/TR/SVG11/coords.html#PreserveAspectRatioAttribute
 bool SkSVGAttributeParser::parsePreserveAspectRatio(SkSVGPreserveAspectRatio* par) {
     static constexpr std::tuple<const char*, SkSVGPreserveAspectRatio::Align> gAlignMap[] = {
