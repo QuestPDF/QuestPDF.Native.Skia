@@ -8746,6 +8746,55 @@ UNIX_ONLY_TEST(SkParagraph_SoftHyphenLineWidth, reporter) {
                     SkScalarNearlyEqual(firstLine.width(), textWidth + hyphenWidth, EPSILON100));
 }
 
+// A line ending in a rendered soft hyphen must still fit the layout width.
+// Sweep widths instead of pinning a break position; positions depend on font metrics.
+UNIX_ONLY_TEST(SkParagraph_SoftHyphenLineNeverExceedsLayoutWidth, reporter) {
+    sk_sp<ResourceFontCollection> fontCollection = sk_make_sp<ResourceFontCollection>(true);
+    SKIP_IF_FONTS_NOT_FOUND(reporter, fontCollection)
+
+    const char* text =
+            "inter\xC2\xAD"
+            "national inter\xC2\xAD"
+            "national";
+
+    size_t hyphenatedLines = 0;
+    // Letter spacing shifts the line right by half the spacing; cover that case too.
+    for (SkScalar letterSpacing : {0.0f, 2.5f}) {
+        for (SkScalar maxWidth = 60; maxWidth <= 200; maxWidth += 2) {
+            ParagraphStyle paragraph_style;
+            paragraph_style.turnHintingOff();
+            paragraph_style.setRenderSoftHyphens(true);
+            ParagraphBuilderImpl builder(paragraph_style, fontCollection, get_unicode());
+
+            TextStyle text_style;
+            text_style.setFontFamilies({SkString("Roboto")});
+            text_style.setFontSize(20);
+            text_style.setLetterSpacing(letterSpacing);
+            text_style.setColor(SK_ColorBLACK);
+            builder.pushStyle(text_style);
+            builder.addText(text, strlen(text));
+            builder.pop();
+
+            auto paragraph = builder.Build();
+            paragraph->layout(maxWidth);
+
+            auto impl = static_cast<ParagraphImpl*>(paragraph.get());
+            for (auto& line : impl->lines()) {
+                if (line.hyphen() != nullptr) {
+                    ++hyphenatedLines;
+                }
+                // Both the advance (which includes the hyphen) and the shifted extent must fit.
+                REPORTER_ASSERT(reporter, line.width() <= maxWidth + EPSILON100);
+                REPORTER_ASSERT(reporter,
+                                line.offset().fX + line.width() <= maxWidth + EPSILON100);
+            }
+        }
+    }
+
+    // Make sure the sweep actually produced hyphenated lines.
+    REPORTER_ASSERT(reporter, hyphenatedLines > 0);
+}
+
 UNIX_ONLY_TEST(SkParagraph_SoftHyphenRTL, reporter) {
     sk_sp<ResourceFontCollection> fontCollection = sk_make_sp<ResourceFontCollection>(true);
     SKIP_IF_FONTS_NOT_FOUND(reporter, fontCollection)

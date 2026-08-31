@@ -45,11 +45,26 @@ struct LineBreakerWithLittleRounding {
     const SkScalar fLower, fMaxWidth, fUpper;
     const bool fApplyRoundingHack;
 };
+
+// Returns the width a rendered soft hyphen adds to the line (see TextLine::createSoftHyphen).
+// Includes half the letter spacing: TextLine shifts letter-spaced lines right by that much
+// and the hyphen, unlike shaped glyphs, has no trailing spacing to absorb it.
+SkScalar soft_hyphen_advance(const Cluster* cluster) {
+    const SkFont& font = cluster->run().font();
+    if (font.unicharToGlyph('-') == 0) {
+        return 0;
+    }
+    return font.measureText("-", 1, SkTextEncoding::kUTF8) +
+           std::max(0.0f, cluster->getHalfLetterSpacing());
+}
 }  // namespace
 
 // Since we allow cluster clipping when they don't fit
 // we have to work with stretches - parts of clusters
-void TextWrapper::lookAhead(SkScalar maxWidth, Cluster* endOfClusters, bool applyRoundingHack) {
+void TextWrapper::lookAhead(SkScalar maxWidth,
+                            Cluster* endOfClusters,
+                            bool applyRoundingHack,
+                            bool reserveSoftHyphenWidth) {
 
     reset();
     fEndLine.metrics().clean();
@@ -60,10 +75,12 @@ void TextWrapper::lookAhead(SkScalar maxWidth, Cluster* endOfClusters, bool appl
     LineBreakerWithLittleRounding breaker(maxWidth, applyRoundingHack);
     Cluster* nextNonBreakingSpace = nullptr;
     for (auto cluster = fEndLine.endCluster(); cluster < endOfClusters; ++cluster) {
+        SkScalar hyphenWidth = (reserveSoftHyphenWidth && cluster->isSoftHyphen()) ? soft_hyphen_advance(cluster) : 0;
+
         if (cluster->isHardBreak()) {
         } else if (
                 // TODO: Trying to deal with flutter rounding problem. Must be removed...
-                SkScalar width = fWords.width() + fClusters.width() + cluster->width();
+                SkScalar width = fWords.width() + fClusters.width() + cluster->width() + hyphenWidth;
                 breaker.breakLine(width)) {
             if (cluster->isWhitespaceBreak()) {
                 // It's the end of the word
@@ -303,7 +320,10 @@ void TextWrapper::breakTextIntoLines(ParagraphImpl* parent,
     bool needEllipsis = false;
     while (fEndLine.endCluster() != end) {
 
-        this->lookAhead(maxWidth, end, parent->getApplyRoundingHack());
+        this->lookAhead(maxWidth,
+                        end,
+                        parent->getApplyRoundingHack(),
+                        parent->paragraphStyle().getRenderSoftHyphens());
 
         auto lastLine = (hasEllipsis && unlimitedLines) || fLineNumber >= maxLines;
         needEllipsis = hasEllipsis && !endlessLine && lastLine;
