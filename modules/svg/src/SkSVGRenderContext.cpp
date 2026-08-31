@@ -247,6 +247,7 @@ void SkSVGRenderContext::applyPresentationAttributes(const SkSVGPresentationAttr
     ApplyLazyInheritedAttribute(StrokeOpacity);
     ApplyLazyInheritedAttribute(StrokeWidth);
     ApplyLazyInheritedAttribute(TextAnchor);
+    ApplyLazyInheritedAttribute(DominantBaseline);
     ApplyLazyInheritedAttribute(Visibility);
     ApplyLazyInheritedAttribute(Color);
     ApplyLazyInheritedAttribute(ColorInterpolation);

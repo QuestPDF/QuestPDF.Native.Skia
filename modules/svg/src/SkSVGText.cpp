@@ -10,6 +10,7 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkContourMeasure.h"
 #include "include/core/SkFont.h"
+#include "include/core/SkFontMetrics.h"
 #include "include/core/SkFontMgr.h"
 #include "include/core/SkFontStyle.h"
 #include "include/core/SkFontTypes.h"
@@ -133,6 +134,47 @@ static float ComputeAlignmentFactor(const SkSVGPresentationContext& pctx) {
         return 0.0f;
     }
     SkUNREACHABLE;
+}
+
+// https://www.w3.org/TR/SVG11/text.html#DominantBaselineProperty
+// Vertical offset (in the shift-down direction) repositioning the alphabetic baseline so that
+// the requested dominant baseline lands on the text position.
+static float ComputeBaselineShift(const SkSVGPresentationContext& pctx, const SkFont& font) {
+    const auto baseline = pctx.fInherited.fDominantBaseline->type();
+
+    if (baseline == SkSVGDominantBaseline::Type::kAuto ||
+        baseline == SkSVGDominantBaseline::Type::kAlphabetic ||
+        baseline == SkSVGDominantBaseline::Type::kUseScript ||
+        baseline == SkSVGDominantBaseline::Type::kNoChange ||
+        baseline == SkSVGDominantBaseline::Type::kResetSize) {
+        return 0.0f;
+    }
+
+    SkFontMetrics metrics;
+    font.getMetrics(&metrics);
+
+    // SkFontMetrics: fAscent is negative (extent above the baseline),
+    //                fDescent is positive (extent below the baseline).
+    switch (baseline) {
+    case SkSVGDominantBaseline::Type::kMiddle: {
+        // The middle baseline sits half an x-height above the alphabetic baseline.
+        const float xHeight = metrics.fXHeight > 0 ? metrics.fXHeight : -metrics.fAscent * 0.5f;
+        return xHeight * 0.5f;
+    }
+    case SkSVGDominantBaseline::Type::kCentral:
+        return -(metrics.fAscent + metrics.fDescent) * 0.5f;
+    case SkSVGDominantBaseline::Type::kMathematical:
+        return -metrics.fAscent * 0.5f;
+    case SkSVGDominantBaseline::Type::kHanging:
+        return -metrics.fAscent * 0.8f;
+    case SkSVGDominantBaseline::Type::kTextBeforeEdge:
+        return -metrics.fAscent;
+    case SkSVGDominantBaseline::Type::kTextAfterEdge:
+    case SkSVGDominantBaseline::Type::kIdeographic:
+        return -metrics.fDescent;
+    default:
+        return 0.0f;
+    }
 }
 
 } // namespace
@@ -369,6 +411,7 @@ void SkSVGTextContext::shapeFragment(const SkString& txt, const SkSVGRenderConte
     fCurrentStroke = ctx.strokePaint();
 
     const auto font = ResolveFont(ctx);
+    fCurrentBaselineShift = ComputeBaselineShift(ctx.presentationContext(), font);
     fShapeBuffer.reserve(txt.size());
 
     const char* ch_ptr = txt.c_str();
@@ -485,10 +528,13 @@ void SkSVGTextContext::flushChunk(const SkSVGRenderContext& ctx) {
         const auto& buf = blobBuilder.allocRunRSXform(run.font, SkToInt(run.glyphCount));
         std::copy(run.glyphs.get(), run.glyphs.get() + run.glyphCount, buf.glyphs);
         for (size_t i = 0; i < run.glyphCount; ++i) {
+            auto pos_adjust = run.glyhPosAdjust[i];
+            pos_adjust.offset.fY += run.baselineShift;
+
             buf.xforms()[i] = this->computeGlyphXform(run.glyphs[i],
                                                       run.font,
                                                       run.glyphPos[i],
-                                                      run.glyhPosAdjust[i]);
+                                                      pos_adjust);
         }
 
         fCallback(ctx, blobBuilder.make(), run.fillPaint.get(), run.strokePaint.get());
@@ -513,6 +559,7 @@ SkShaper::RunHandler::Buffer SkSVGTextContext::runBuffer(const RunInfo& ri) {
         std::make_unique<PositionAdjustment[]>(ri.glyphCount),
         ri.glyphCount,
         ri.fAdvance,
+        fCurrentBaselineShift,
     });
 
     // Ensure sufficient space to temporarily fetch cluster information.

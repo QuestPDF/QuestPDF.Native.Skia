@@ -631,6 +631,38 @@ private:
     Type fType;
 };
 
+// https://www.w3.org/TR/SVG11/text.html#DominantBaselineProperty
+class SK_API SkSVGDominantBaseline {
+public:
+    enum class Type {
+        kAuto,
+        kUseScript,
+        kNoChange,
+        kResetSize,
+        kIdeographic,
+        kAlphabetic,
+        kHanging,
+        kMathematical,
+        kCentral,
+        kMiddle,
+        kTextAfterEdge,
+        kTextBeforeEdge,
+    };
+
+    SkSVGDominantBaseline() : fType(Type::kAuto) {}
+    explicit SkSVGDominantBaseline(Type t) : fType(t) {}
+
+    bool operator==(const SkSVGDominantBaseline& other) const {
+        return fType == other.fType;
+    }
+    bool operator!=(const SkSVGDominantBaseline& other) const { return !(*this == other); }
+
+    Type type() const { return fType; }
+
+private:
+    Type fType;
+};
+
 // https://www.w3.org/TR/SVG11/filters.html#FilterPrimitiveInAttribute
 class SK_API SkSVGFeInputType {
 public:
