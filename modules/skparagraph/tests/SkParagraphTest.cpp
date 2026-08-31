@@ -10896,17 +10896,18 @@ UNIX_ONLY_TEST(SkParagraph_SoftHyphenBreakBeforePlaceholderNeedsNoRoom, reporter
     checkLines(reporter, paragraph.get(), "xy abcdi|");
 }
 
-// With no earlier break opportunity on the line, the soft hyphen break is still used and the
-// hyphen overflows, rather than breaking inside the word (also like browsers).
-UNIX_ONLY_TEST(SkParagraph_SoftHyphenOnlyBreakMayOverflow, reporter) {
+// QuestPDF: with no earlier break opportunity on the line, upstream still uses the soft hyphen
+// break and lets the hyphen overflow (like browsers). This fork ends the line before the soft
+// hyphen instead, without drawing a hyphen, so that no line exceeds the layout width.
+UNIX_ONLY_TEST(SkParagraph_SoftHyphenOnlyBreakDoesNotOverflow, reporter) {
     sk_sp<ResourceFontCollection> fontCollection = sk_make_sp<ResourceFontCollection>(true);
     SKIP_IF_FONTS_NOT_FOUND(reporter, fontCollection)
 
     SkScalar hyphen = singleLineWidth(fontCollection, "-");
     SkScalar width = singleLineWidth(fontCollection, "abcd") + hyphen / 2;
     auto paragraph = layoutWithSoftHyphens(fontCollection, "abcd~efgh", width);
-    checkLines(reporter, paragraph.get(), "abcd-|efgh");
-    REPORTER_ASSERT(reporter, paragraph->getLongestLine() > width);
+    checkLines(reporter, paragraph.get(), "abcd|efgh");
+    REPORTER_ASSERT(reporter, paragraph->getLongestLine() <= width + EPSILON100);
 }
 
 // The hyphen only counts if the line ends at the soft hyphen. Here the line would overflow if it

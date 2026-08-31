@@ -98,9 +98,13 @@ void TextWrapper::lookAhead(SkScalar maxWidth,
     // A line that breaks at a soft hyphen also draws the hyphen, so that break only fits if the
     // hyphen does too. When the last break opportunity is a soft hyphen that doesn't fit with its
     // hyphen, remember the words before it: if the line has to end there, end it before instead.
-    // (Like browsers, keep the soft hyphen break if there's no earlier opportunity on the line.)
+    // QuestPDF: upstream keeps the soft hyphen break if there's no earlier opportunity on the
+    // line and lets the hyphen overflow. A line wider than the layout width is a layout failure
+    // for QuestPDF, so remember the clusters before the soft hyphen too and end the line there,
+    // without a hyphen, the same way a too long word is split.
     bool softHyphenBreakTooWide = false;
     TextStretch wordsBeforeSoftHyphen;
+    TextStretch clustersBeforeSoftHyphen;
     bool brokeForWidth = false;
     for (auto cluster = fEndLine.endCluster(); cluster < endOfClusters; ++cluster) {
         if (cluster->isHardBreak()) {
@@ -238,11 +242,19 @@ void TextWrapper::lookAhead(SkScalar maxWidth,
                 SkScalar hyphenWidth = softHyphenWidth(softHyphen, cluster);
                 fMinIntrinsicWidth =
                         std::max(fMinIntrinsicWidth, getClustersTrimmedWidth() + hyphenWidth);
-                bool tooWide = hyphenWidth > 0 && !lineMayEllipsize && !fWords.empty() &&
-                               breaker.breakLine(fWords.width() + fClusters.width() + hyphenWidth);
+                // QuestPDF: also without an earlier break opportunity, as long as the line keeps
+                // some text before the soft hyphen. A letter-spaced line is shifted right by half
+                // the spacing and the hyphen, unlike shaped glyphs, has no trailing spacing to
+                // absorb the shift, so reserve that half too.
+                bool tooWide = hyphenWidth > 0 && !lineMayEllipsize &&
+                               (!fWords.empty() || fClusters.startCluster() != cluster) &&
+                               breaker.breakLine(fWords.width() + fClusters.width() + hyphenWidth +
+                                                 std::max(0.0f, cluster->getHalfLetterSpacing()));
                 if (tooWide && !softHyphenBreakTooWide) {
                     // Keep the last break that fits, even past several soft hyphens that don't.
                     wordsBeforeSoftHyphen = fWords;
+                    clustersBeforeSoftHyphen = fClusters;
+                    clustersBeforeSoftHyphen.trim(cluster);
                 }
                 softHyphenBreakTooWide = tooWide;
                 fWords.extend(fClusters);
@@ -258,6 +270,10 @@ void TextWrapper::lookAhead(SkScalar maxWidth,
     if (brokeForWidth && softHyphenBreakTooWide && !fTooLongWord) {
         fWords = wordsBeforeSoftHyphen;
         fClusters.clean();
+        if (fWords.empty() && !clustersBeforeSoftHyphen.empty()) {
+            // QuestPDF: no earlier break opportunity, so end the line before the soft hyphen
+            fClusters = clustersBeforeSoftHyphen;
+        }
     }
 }
 
