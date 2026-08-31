@@ -144,6 +144,7 @@ public:
     SVG_PRES_ATTR(StrokeOpacity            , SkSVGNumberType, true)
     SVG_PRES_ATTR(StrokeWidth              , SkSVGLength    , true)
     SVG_PRES_ATTR(TextAnchor               , SkSVGTextAnchor, true)
+    SVG_PRES_ATTR(DominantBaseline         , SkSVGDominantBaseline, true)
     SVG_PRES_ATTR(Visibility               , SkSVGVisibility, true)
 
     // not inherited

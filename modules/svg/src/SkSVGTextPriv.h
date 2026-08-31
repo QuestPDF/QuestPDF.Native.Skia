@@ -169,6 +169,7 @@ private:
         std::unique_ptr<PositionAdjustment[]> glyhPosAdjust; // deferred positioning adjustments
         size_t                                glyphCount;
         SkVector                              advance;
+        float                                 baselineShift; // dominant-baseline adjustment
     };
 
     // Caches path information to accelerate position lookups.
@@ -221,6 +222,7 @@ private:
     // cached for access from SkShaper callbacks.
     std::optional<SkPaint>          fCurrentFill;
     std::optional<SkPaint>          fCurrentStroke;
+    float                           fCurrentBaselineShift = 0;
 
     bool                            fPrevCharSpace = true; // WS filter state
     bool                            fForcePrimitiveShaping = false;

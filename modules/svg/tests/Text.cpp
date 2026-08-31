@@ -5,6 +5,7 @@
  * found in the LICENSE file.
  */
 
+#include "include/core/SkString.h"
 #include "include/utils/SkNoDrawCanvas.h"
 #include "modules/skresources/include/SkResources.h"
 #include "modules/skshaper/utils/FactoryHelpers.h"
@@ -195,5 +196,82 @@ DEF_TEST(Svg_Text_PosProvider, r) {
 
     for (const auto& tst : gTests) {
         test(tst);
+    }
+}
+
+DEF_TEST(Svg_Text_DominantBaseline, r) {
+    using Type = SkSVGDominantBaseline::Type;
+
+    static const struct {
+        const char* fValue;
+        Type        fExpected;
+    } gValidTests[] = {
+        { "auto"            , Type::kAuto           },
+        { "alphabetic"      , Type::kAlphabetic     },
+        { "middle"          , Type::kMiddle         },
+        { "central"         , Type::kCentral        },
+        { "hanging"         , Type::kHanging        },
+        { "mathematical"    , Type::kMathematical   },
+        { "ideographic"     , Type::kIdeographic    },
+        { "text-before-edge", Type::kTextBeforeEdge },
+        { "text-after-edge" , Type::kTextAfterEdge  },
+        { "use-script"      , Type::kUseScript      },
+        { "no-change"       , Type::kNoChange       },
+        { "reset-size"      , Type::kResetSize      },
+        // CSS Inline Layout 3 spellings of the two edge values.
+        { "text-top"        , Type::kTextBeforeEdge },
+        { "text-bottom"     , Type::kTextAfterEdge  },
+    };
+
+    for (const auto& tst : gValidTests) {
+        auto text = SkSVGText::Make();
+        REPORTER_ASSERT(r, text->setAttribute("dominant-baseline", tst.fValue));
+        REPORTER_ASSERT(r, text->getDominantBaseline().isValue());
+        REPORTER_ASSERT(r, text->getDominantBaseline()->type() == tst.fExpected);
+
+        // The property is not text-specific; it resolves on any node, and via 'style'.
+        auto tspan = SkSVGTSpan::Make();
+        REPORTER_ASSERT(r, tspan->setAttribute("dominant-baseline", tst.fValue));
+        REPORTER_ASSERT(r, tspan->getDominantBaseline()->type() == tst.fExpected);
+
+        auto styled = SkSVGText::Make();
+        styled->setAttribute("style", SkStringPrintf("dominant-baseline: %s", tst.fValue).c_str());
+        REPORTER_ASSERT(r, styled->getDominantBaseline().isValue());
+        REPORTER_ASSERT(r, styled->getDominantBaseline()->type() == tst.fExpected);
+    }
+
+    // Values which must not set the property, leaving it to inherit.
+    static const char* gUnsetTests[] = {
+        "not-a-value",
+        // 'alignment-baseline'-only spellings are not 'dominant-baseline' values.
+        "baseline",
+        "before-edge",
+        "after-edge",
+        // Trailing garbage must be rejected, not silently truncated.
+        "middle bogus",
+    };
+
+    for (const char* value : gUnsetTests) {
+        auto text = SkSVGText::Make();
+        REPORTER_ASSERT(r, !text->setAttribute("dominant-baseline", value));
+        REPORTER_ASSERT(r, !text->getDominantBaseline().isValue());
+    }
+
+    // 'alignment-baseline' is not supported at all.
+    for (const char* attrValue : {"middle", "hanging", "central"}) {
+        auto text = SkSVGText::Make();
+        REPORTER_ASSERT(r, !text->setAttribute("alignment-baseline", attrValue));
+        REPORTER_ASSERT(r, !text->getDominantBaseline().isValue());
+
+        auto tspan = SkSVGTSpan::Make();
+        REPORTER_ASSERT(r, !tspan->setAttribute("alignment-baseline", attrValue));
+        REPORTER_ASSERT(r, !tspan->getDominantBaseline().isValue());
+    }
+
+    // Explicit 'inherit' is handled generically.
+    {
+        auto text = SkSVGText::Make();
+        REPORTER_ASSERT(r, text->setAttribute("dominant-baseline", "inherit"));
+        REPORTER_ASSERT(r, !text->getDominantBaseline().isValue());
     }
 }
