@@ -5,6 +5,7 @@
 #include "include/core/SkString.h"
 #include "include/core/SkTypeface.h"
 #include "src/core/SkFontDescriptor.h"
+#include "src/core/SkTSearch.h"
 
 namespace skia {
 namespace textlayout {
