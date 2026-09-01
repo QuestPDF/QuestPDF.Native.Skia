@@ -5,6 +5,7 @@
 #include "include/core/SkString.h"
 #include "include/core/SkTypeface.h"
 #include "src/core/SkFontDescriptor.h"
+#include "src/core/SkTSearch.h"
 
 namespace skia {
 namespace textlayout {
@@ -17,7 +18,11 @@ void TypefaceFontProvider::onGetFamilyName(int index, SkString* familyName) cons
 }
 
 sk_sp<SkFontStyleSet> TypefaceFontProvider::onMatchFamily(const char familyName[]) const {
-    auto found = fRegisteredFamilies.find(familyName);
+    if (familyName == nullptr) {
+        return nullptr;
+    }
+    SkAutoAsciiToLC tolc(familyName);
+    auto found = fRegisteredFamilies.find(tolc.lc());
     if (found != fRegisteredFamilies.end()) {
         return found->second;
     } else {
@@ -27,7 +32,8 @@ sk_sp<SkFontStyleSet> TypefaceFontProvider::onMatchFamily(const char familyName[
 
 sk_sp<SkFontStyleSet> TypefaceFontProvider::onCreateStyleSet(int index) const {
     SkASSERT((unsigned)index < fRegisteredFamilies.size());
-    auto found = fRegisteredFamilies.find(fFamilyNames[index]);
+    SkAutoAsciiToLC tolc(fFamilyNames[index].c_str());
+    auto found = fRegisteredFamilies.find(tolc.lc());
     if (found != fRegisteredFamilies.end()) {
         return found->second;
     } else {
@@ -60,11 +66,11 @@ size_t TypefaceFontProvider::registerTypeface(sk_sp<SkTypeface> typeface, const 
         return 0;
     }
 
-    auto fname(familyName.c_str());
-    auto found = fRegisteredFamilies.find(fname);
+    SkAutoAsciiToLC tolc(familyName.c_str());
+    auto found = fRegisteredFamilies.find(tolc.lc());
     if (found == fRegisteredFamilies.end()) {
-        auto val = fRegisteredFamilies[fname] = sk_make_sp<TypefaceFontStyleSet>(familyName);
-        fFamilyNames.emplace_back(fname);
+        auto val = fRegisteredFamilies[tolc.lc()] = sk_make_sp<TypefaceFontStyleSet>(familyName);
+        fFamilyNames.emplace_back(familyName.c_str());
         val->appendTypeface(std::move(typeface));
     } else {
         found->second->appendTypeface(std::move(typeface));
