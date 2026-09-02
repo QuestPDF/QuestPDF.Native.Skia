@@ -497,7 +497,7 @@ SkMatrix SkSVGTextContext::PathData::getMatrixAt(float offset) const {
 SkRSXform SkSVGTextContext::computeGlyphXform(SkGlyphID glyph, const SkFont& font,
                                               const SkPoint& glyph_pos,
                                               const PositionAdjustment& pos_adjust) const {
-    SkPoint pos = fChunkPos + glyph_pos + pos_adjust.offset + fChunkAdvance * fChunkAlignmentFactor;
+    SkPoint pos = fChunkPos + glyph_pos + pos_adjust.offset + SkVector{fChunkAdvance.fX * fChunkAlignmentFactor, 0};
     if (!fPathData) {
         return SkRSXform::MakeFromRadians(/*scale=*/ 1, pos_adjust.rotation, pos.fX, pos.fY, 0, 0);
     }
