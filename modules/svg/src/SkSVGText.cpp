@@ -48,7 +48,7 @@ using namespace skia_private;
 
 namespace {
 
-static SkFont ResolveFont(const SkSVGRenderContext& ctx) {
+SkFontStyle ResolveFontStyle(const SkSVGFontWeight& fontWeight, const SkSVGFontStyle& fontStyle) {
     auto weight = [](const SkSVGFontWeight& w) {
         switch (w.type()) {
             case SkSVGFontWeight::Type::k100:     return SkFontStyle::kThin_Weight;
@@ -85,22 +85,38 @@ static SkFont ResolveFont(const SkSVGRenderContext& ctx) {
         SkUNREACHABLE;
     };
 
-    const auto& family = ctx.presentationContext().fInherited.fFontFamily->family();
-    const SkFontStyle style(weight(*ctx.presentationContext().fInherited.fFontWeight),
-                            SkFontStyle::kNormal_Width,
-                            slant(*ctx.presentationContext().fInherited.fFontStyle));
+    return SkFontStyle(weight(fontWeight), SkFontStyle::kNormal_Width, slant(fontStyle));
+}
 
-    const auto size =
-            ctx.lengthContext().resolve(ctx.presentationContext().fInherited.fFontSize->size(),
-                                        SkSVGLengthContext::LengthType::kVertical);
-
-    // TODO: we likely want matchFamilyStyle here, but switching away from legacyMakeTypeface
-    // changes all the results when using the default fontmgr.
-    auto tf = ctx.fontMgr()->legacyMakeTypeface(family.c_str(), style);
-    if (!tf) {
-        tf = ctx.fontMgr()->legacyMakeTypeface(nullptr, style);
+// Returns a typeface for the first family of the font-family list known to the font manager,
+// or null when none is available.
+sk_sp<SkTypeface> MatchFontFamily(SkFontMgr& fontMgr,
+                                  const std::vector<SkString>& families,
+                                  const SkFontStyle& style) {
+    // Unlike legacyMakeTypeface, matchFamilyStyle fails for unknown families, which is what
+    // makes the fallback order meaningful. CSS generic names (serif, monospace, ...) are not
+    // mapped here: they count as unknown and fall through to the default font.
+    for (const auto& family : families) {
+        if (auto tf = fontMgr.matchFamilyStyle(family.c_str(), style)) {
+            return tf;
+        }
     }
-    SkASSERT(tf);
+    return nullptr;
+}
+
+static SkFont ResolveFont(const SkSVGRenderContext& ctx) {
+    const auto& inherited = ctx.presentationContext().fInherited;
+    const SkFontStyle style = ResolveFontStyle(*inherited.fFontWeight, *inherited.fFontStyle);
+
+    const auto size = ctx.lengthContext().resolve(inherited.fFontSize->size(),
+                                                  SkSVGLengthContext::LengthType::kVertical);
+
+    // When no listed family is available, ask the font manager for its default.
+    const auto fontMgr = ctx.fontMgr();
+    auto tf = MatchFontFamily(*fontMgr, inherited.fFontFamily->families(), style);
+    if (!tf) {
+        tf = fontMgr->legacyMakeTypeface(nullptr, style);
+    }
     SkFont font(std::move(tf), size);
     font.setHinting(SkFontHinting::kNone);
     font.setSubpixel(true);

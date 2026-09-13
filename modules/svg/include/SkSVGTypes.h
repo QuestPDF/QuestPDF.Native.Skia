@@ -484,20 +484,25 @@ public:
     SkSVGFontFamily() : fType(Type::kInherit) {}
     explicit SkSVGFontFamily(const char family[])
         : fType(Type::kFamily)
-        , fFamily(family) {}
+        , fFamilies({SkString(family)}) {}
+    explicit SkSVGFontFamily(std::vector<SkString> families)
+        : fType(Type::kFamily)
+        , fFamilies(std::move(families)) {}
 
     bool operator==(const SkSVGFontFamily& other) const {
-        return fType == other.fType && fFamily == other.fFamily;
+        return fType == other.fType && fFamilies == other.fFamilies;
     }
     bool operator!=(const SkSVGFontFamily& other) const { return !(*this == other); }
 
     Type type() const { return fType; }
 
-    const SkString& family() const { return fFamily; }
+    // Candidate families in priority order (the CSS font-family list), without quotes or
+    // surrounding whitespace. The first available family is used.
+    const std::vector<SkString>& families() const { return fFamilies; }
 
 private:
-    Type     fType;
-    SkString fFamily;
+    Type                  fType;
+    std::vector<SkString> fFamilies;
 };
 
 class SK_API SkSVGFontStyle {

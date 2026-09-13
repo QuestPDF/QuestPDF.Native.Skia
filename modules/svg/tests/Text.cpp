@@ -9,6 +9,7 @@
 #include "include/utils/SkNoDrawCanvas.h"
 #include "modules/skresources/include/SkResources.h"
 #include "modules/skshaper/utils/FactoryHelpers.h"
+#include "modules/svg/include/SkSVGAttributeParser.h"
 #include "modules/svg/include/SkSVGIDMapper.h"
 #include "modules/svg/include/SkSVGRenderContext.h"
 #include "modules/svg/include/SkSVGText.h"
@@ -274,4 +275,43 @@ DEF_TEST(Svg_Text_DominantBaseline, r) {
         REPORTER_ASSERT(r, text->setAttribute("dominant-baseline", "inherit"));
         REPORTER_ASSERT(r, !text->getDominantBaseline().isValue());
     }
+}
+
+DEF_TEST(Svg_Text_FontFamilyParsing, r) {
+    using Families = std::vector<SkString>;
+
+    static const struct {
+        const char* fInput;
+        bool        fValid;
+        Families    fExpected;
+    } gTests[] = {
+        { "Lato"                         , true , { SkString("Lato") } },
+        { "  Lato  "                     , true , { SkString("Lato") } },
+        { "Open Sans"                    , true , { SkString("Open Sans") } },
+        { "'Open Sans'"                  , true , { SkString("Open Sans") } },
+        { "\"Open Sans\""                , true , { SkString("Open Sans") } },
+        { "Arial, Lato"                  , true , { SkString("Arial"), SkString("Lato") } },
+        { " 'Open Sans' , Arial ,Lato "  , true , { SkString("Open Sans"), SkString("Arial"), SkString("Lato") } },
+        { "'A, B', C"                    , true , { SkString("A, B"), SkString("C") } },
+        { "Lato,"                        , true , { SkString("Lato") } },
+        { "Lato,,Arial"                  , true , { SkString("Lato"), SkString("Arial") } },
+        { "''"                           , false, {} },
+        { ""                             , false, {} },
+        { ","                            , false, {} },
+        { "'Unterminated"                , false, {} },
+        { "'Lato' Arial"                 , false, {} },
+    };
+
+    for (const auto& test : gTests) {
+        const auto result = SkSVGAttributeParser::parse<SkSVGFontFamily>(test.fInput);
+        REPORTER_ASSERT(r, result.has_value() == test.fValid, "input: '%s'", test.fInput);
+        if (!result.has_value() || !test.fValid) {
+            continue;
+        }
+        REPORTER_ASSERT(r, result->type() == SkSVGFontFamily::Type::kFamily);
+        REPORTER_ASSERT(r, result->families() == test.fExpected, "input: '%s'", test.fInput);
+    }
+
+    const auto inherit = SkSVGAttributeParser::parse<SkSVGFontFamily>("inherit");
+    REPORTER_ASSERT(r, inherit.has_value() && inherit->type() == SkSVGFontFamily::Type::kInherit);
 }
