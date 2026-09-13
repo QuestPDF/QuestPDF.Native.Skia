@@ -983,22 +983,46 @@ bool SkSVGAttributeParser::parse(SkSVGDashArray* dashArray) {
 // https://www.w3.org/TR/SVG11/text.html#FontFamilyProperty
 template <>
 bool SkSVGAttributeParser::parse(SkSVGFontFamily* family) {
-    bool parsedValue = false;
     if (this->parseExpectedStringToken("inherit")) {
         *family = SkSVGFontFamily();
-        parsedValue = true;
-    } else {
-        // The spec allows specifying a comma-separated list for explicit fallback order.
-        // For now, we only use the first entry and rely on the font manager to handle fallback.
-        const auto* comma = strchr(fCurPos, ',');
-        auto family_name = comma ? SkString(fCurPos, comma - fCurPos)
-                                 : SkString(fCurPos);
-        *family = SkSVGFontFamily(family_name.c_str());
-        fCurPos += strlen(fCurPos);
-        parsedValue = true;
+        return this->parseEOSToken();
     }
 
-    return parsedValue && this->parseEOSToken();
+    // Comma-separated family names in fallback order. A name is either quoted ('Open Sans')
+    // or bare (Open Sans); whitespace around a name is not part of it, empty entries are skipped.
+    std::vector<SkString> families;
+    do {
+        this->parseWSToken();
+        const char* start = fCurPos;
+        const char* end;
+        if (fCurPos < fEndPos && (*fCurPos == '\'' || *fCurPos == '"')) {
+            const char quote = *fCurPos++;
+            start = fCurPos;
+            this->advanceWhile([quote](char c) { return c != quote; });
+            if (fCurPos == fEndPos) {
+                return false;  // unterminated string
+            }
+            end = fCurPos++;
+            this->parseWSToken();
+        } else {
+            this->advanceWhile([](char c) { return c != ','; });
+            end = fCurPos;
+            while (end > start && is_ws(end[-1])) {
+                end--;
+            }
+        }
+        if (end > start) {
+            families.emplace_back(start, end - start);
+        }
+    } while (this->parseExpectedStringToken(","));
+
+    // Anything left over (e.g. text after a quoted name) or a list without names is invalid;
+    // the property is then ignored.
+    if (families.empty() || !this->parseEOSToken()) {
+        return false;
+    }
+    *family = SkSVGFontFamily(std::move(families));
+    return true;
 }
 
 // https://www.w3.org/TR/SVG11/text.html#FontSizeProperty
