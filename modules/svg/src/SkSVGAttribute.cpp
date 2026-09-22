@@ -32,7 +32,7 @@ SkSVGPresentationAttributes SkSVGPresentationAttributes::MakeInitial() {
     result.fColorInterpolation.set(SkSVGColorspace::kSRGB);
     result.fColorInterpolationFilters.set(SkSVGColorspace::kLinearRGB);
 
-    result.fFontFamily.init("Lato");
+    result.fFontFamily.init(SkSVGFontFamily::kDefaultFamily);
     result.fFontStyle.init(SkSVGFontStyle::Type::kNormal);
     result.fFontSize.init(SkSVGLength(16));
     result.fFontWeight.init(SkSVGFontWeight::Type::kNormal);

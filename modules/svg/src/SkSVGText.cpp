@@ -111,12 +111,16 @@ static SkFont ResolveFont(const SkSVGRenderContext& ctx) {
     const auto size = ctx.lengthContext().resolve(inherited.fFontSize->size(),
                                                   SkSVGLengthContext::LengthType::kVertical);
 
-    // When no listed family is available, ask the font manager for its default.
+    // When no listed family is available, use the default family, then whatever the font manager considers its default.
     const auto fontMgr = ctx.fontMgr();
     auto tf = MatchFontFamily(*fontMgr, inherited.fFontFamily->families(), style);
-    if (!tf) {
+
+    if (!tf)
+        tf = fontMgr->matchFamilyStyle(SkSVGFontFamily::kDefaultFamily, style);
+
+    if (!tf)
         tf = fontMgr->legacyMakeTypeface(nullptr, style);
-    }
+
     SkFont font(std::move(tf), size);
     font.setHinting(SkFontHinting::kNone);
     font.setSubpixel(true);
