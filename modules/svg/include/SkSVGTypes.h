@@ -481,6 +481,8 @@ public:
         kInherit,
     };
 
+    static constexpr char kDefaultFamily[] = "Lato";
+
     SkSVGFontFamily() : fType(Type::kInherit) {}
     explicit SkSVGFontFamily(const char family[])
         : fType(Type::kFamily)
