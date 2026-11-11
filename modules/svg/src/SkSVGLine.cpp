@@ -8,12 +8,11 @@
 #include "modules/svg/include/SkSVGLine.h"
 
 #include "include/core/SkCanvas.h"
+#include "include/core/SkPaint.h"
 #include "include/core/SkPathTypes.h"
 #include "include/core/SkPoint.h"
 #include "modules/svg/include/SkSVGAttributeParser.h"
 #include "modules/svg/include/SkSVGRenderContext.h"
-
-class SkPaint;
 
 SkSVGLine::SkSVGLine() : INHERITED(SkSVGTag::kLine) {}
 
@@ -35,6 +34,13 @@ std::tuple<SkPoint, SkPoint> SkSVGLine::resolve(const SkSVGLengthContext& lctx) 
 
 void SkSVGLine::onDraw(SkCanvas* canvas, const SkSVGLengthContext& lctx,
                        const SkPaint& paint, SkPathFillType) const {
+    // A line has no interior, so the fill pass must draw nothing. SkCanvas::drawLine always
+    // strokes, so a fill paint would otherwise show up as a hairline in the fill color
+    // (black by default), visible e.g. in the gaps of a dashed stroke.
+    if (paint.getStyle() == SkPaint::kFill_Style) {
+        return;
+    }
+
     SkPoint p0, p1;
     std::tie(p0, p1) = this->resolve(lctx);
 
