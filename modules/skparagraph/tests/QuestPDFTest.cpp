@@ -398,6 +398,68 @@ DEF_TEST(QuestPDF_Paragraph_TextBlobsCarrySourceText, reporter) {
     REPORTER_ASSERT(reporter, blobsWithText == 1);
 }
 
+// HarfBuzz shapes a soft hyphen or zero-width space to the font's space glyph with no advance.
+// Drawing that glyph puts a space into the PDF text layer and splits the word for search and
+// copy-paste (QuestPDF issue #1494), so it is left out of the drawn blobs and their source
+// text, while layout keeps it. Other hidden characters are drawn as before.
+DEF_TEST(QuestPDF_Paragraph_HiddenCharactersAreNotDrawn, reporter) {
+    auto fontCollection = make_font_collection();
+    if (!fontCollection) {
+        return;
+    }
+    const SkGlyphID spaceGlyph = load_typeface()->unicharToGlyph(' ');
+
+    struct Drawn {
+        std::string fText;
+        int fSpaceGlyphs = 0;
+    };
+    auto draw = [&](const std::string& text, SkScalar width, int line) {
+        auto paragraph = make_paragraph(fontCollection, {{text, make_text_style(14)}}, width);
+        BlobCanvas canvas;
+        paragraph->paintLines(&canvas, line, line);
+        Drawn drawn;
+        for (const auto& blob : canvas.fBlobs) {
+            for (SkTextBlobRunIterator it(blob.fBlob.get()); !it.done(); it.next()) {
+                drawn.fText.append(it.text(), it.textSize());
+                for (uint32_t i = 0; i < it.glyphCount(); ++i) {
+                    drawn.fSpaceGlyphs += it.glyphs()[i] == spaceGlyph;
+                }
+                for (uint32_t i = 0; it.clusters() != nullptr && i < it.glyphCount(); ++i) {
+                    REPORTER_ASSERT(reporter, it.clusters()[i] < it.textSize());
+                }
+            }
+        }
+        return drawn;
+    };
+
+    // No break at the hidden characters: only the real space is drawn
+    const std::string text = std::string("light") + kSoftHyphen + "house light\xE2\x80\x8Bhouse";
+    Drawn drawn = draw(text, 500, 0);
+    REPORTER_ASSERT(reporter, drawn.fText == "lighthouse lighthouse", "%s", drawn.fText.c_str());
+    REPORTER_ASSERT(reporter, drawn.fSpaceGlyphs == 1, "%d space glyphs", drawn.fSpaceGlyphs);
+
+    // Layout is unchanged: the hidden characters still take no room
+    auto hidden = make_paragraph(fontCollection, {{text, make_text_style(14)}}, 500);
+    auto plain = make_paragraph(fontCollection, {{"lighthouse lighthouse", make_text_style(14)}}, 500);
+    REPORTER_ASSERT(reporter, std::fabs(hidden->getMaxIntrinsicWidth() -
+                                        plain->getMaxIntrinsicWidth()) < kEpsilon);
+
+    // Break at the soft hyphen: the first line draws "light" and the hyphen, and no space
+    const std::string word = std::string("light") + kSoftHyphen + "house";
+    auto narrow = make_paragraph(fontCollection, {{word, make_text_style(14)}}, 50);
+    REPORTER_ASSERT(reporter, narrow->lineNumber() == 2, "%zu lines", narrow->lineNumber());
+    Drawn first = draw(word, 50, 0);
+    REPORTER_ASSERT(reporter, first.fText == "light", "%s", first.fText.c_str());
+    REPORTER_ASSERT(reporter, first.fSpaceGlyphs == 0, "%d space glyphs", first.fSpaceGlyphs);
+
+    // A zero-width non-joiner changes how letters join (Persian, Indic), so it is not a
+    // line-break hint: its glyph and text stay, for the PDF backend to map through /ActualText
+    const std::string joiner = "shelf\xE2\x80\x8C" "ful";
+    Drawn kept = draw(joiner, 500, 0);
+    REPORTER_ASSERT(reporter, kept.fText == joiner, "%s", kept.fText.c_str());
+    REPORTER_ASSERT(reporter, kept.fSpaceGlyphs == 1, "%d space glyphs", kept.fSpaceGlyphs);
+}
+
 // The underline starts at the distance below the baseline the font asks for, and the two lines of
 // a double underline are one line thickness apart.
 DEF_TEST(QuestPDF_Paragraph_DecorationGeometry, reporter) {

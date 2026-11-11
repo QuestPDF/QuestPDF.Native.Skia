@@ -177,6 +177,11 @@ private:
     // [pos, pos + size), or EMPTY_TEXT when it cannot be mapped.
     TextRange sourceTextRange(size_t pos, size_t size) const;
 
+    // Returns the utf8 text range (relative to fClusterStart) of glyph `glyph` when it is the
+    // placeholder HarfBuzz emits for hidden line-break hints (soft hyphen, zero-width space,
+    // word joiner, BOM), or EMPTY_TEXT.
+    TextRange hiddenBreakHintText(size_t glyph, SkGlyphID spaceGlyph) const;
+
     friend class ParagraphImpl;
     friend class TextLine;
     friend class InternalLineMetrics;

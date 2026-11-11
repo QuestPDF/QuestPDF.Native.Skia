@@ -110,42 +110,166 @@ TextRange Run::sourceTextRange(size_t pos, size_t size) const {
     return text;
 }
 
+namespace {
+// Invisible characters that only steer line breaking and carry no meaning for the text.
+bool is_line_break_hint(SkUnichar u) {
+    return u == 0x00AD    // soft hyphen
+        || u == 0x200B    // zero-width space
+        || u == 0x2060    // word joiner
+        || u == 0xFEFF;   // zero-width no-break space (BOM)
+}
+}  // namespace
+
+// HarfBuzz hides default-ignorable codepoints by shaping each to the font's space glyph with a
+// zero advance. Painting that glyph shows nothing, but PDF text extraction reads it as U+0020
+// (the space glyph's cmap entry), which splits words for search, copy-paste and screen readers.
+// Only line-break hints are handled; joiners, bidi marks and variation selectors carry meaning
+// and keep their glyph, which the PDF backend maps back to them through /ActualText.
+TextRange Run::hiddenBreakHintText(size_t glyph, SkGlyphID spaceGlyph) const {
+    if (fOwner == nullptr || fEllipsis || spaceGlyph == 0 || fGlyphs[glyph] != spaceGlyph) {
+        return EMPTY_TEXT;
+    }
+
+    // The glyph's text runs from its cluster to the next larger cluster index; clusters
+    // grow in glyph order for LTR and in reverse glyph order for RTL.
+    const size_t start = fClusterIndexes[glyph];
+    size_t end = EMPTY_INDEX;
+    if (this->leftToRight()) {
+        for (size_t k = glyph + 1; k <= this->size(); ++k) {
+            if (fClusterIndexes[k] > start) {
+                end = fClusterIndexes[k];
+                break;
+            }
+        }
+    } else {
+        end = fUtf8Range.end();
+        for (size_t k = glyph; k > 0; --k) {
+            if (fClusterIndexes[k - 1] > start) {
+                end = fClusterIndexes[k - 1];
+                break;
+            }
+        }
+    }
+    if (end == EMPTY_INDEX || end <= start || fClusterStart + end > fOwner->text().size()) {
+        return EMPTY_TEXT;
+    }
+
+    // All line-break hints are outside ASCII, so ASCII text (a real space) never qualifies.
+    const char* p = fOwner->text().data() + fClusterStart + start;
+    const char* stop = fOwner->text().data() + fClusterStart + end;
+    if (static_cast<unsigned char>(*p) < 0x80) {
+        return EMPTY_TEXT;
+    }
+    while (p < stop) {
+        if (!is_line_break_hint(SkUTF::NextUTF8(&p, stop))) {
+            return EMPTY_TEXT;
+        }
+    }
+    return TextRange(start, end);
+}
+
 void Run::copyTo(SkTextBlobBuilder& builder, size_t pos, size_t size, bool attachText) const {
     SkASSERT(pos + size <= this->size());
+
+    // Leave out the placeholder glyphs of hidden line-break hints, and their text from the
+    // attached text, so they reach neither the canvas nor the PDF text layer.
+    // Layout (positions, widths, clusters, line breaks) is unaffected.
+    skia_private::STArray<64, size_t, true> kept;
+    skia_private::STArray<4, TextRange, true> hiddenText;
+    if (fOwner != nullptr && !fEllipsis) {
+        const SkGlyphID spaceGlyph = fFont.unicharToGlyph(' ');
+        for (size_t i = 0; i < size; ++i) {
+            TextRange hidden = this->hiddenBreakHintText(pos + i, spaceGlyph);
+            if (hidden == EMPTY_TEXT) {
+                kept.push_back(pos + i);
+            } else {
+                hiddenText.push_back(hidden);
+            }
+        }
+    }
+    const bool filtering = !hiddenText.empty();
+    const size_t count = filtering ? kept.size() : size;
+    if (count == 0) {
+        return;
+    }
+    auto glyphAt = [&](size_t i) { return filtering ? kept[i] : pos + i; };
 
     // Attached text and clusters let the PDF backend emit correct ToUnicode and
     // /ActualText for glyphs without cmap entries (ligatures, Arabic contextual forms).
     const TextRange text = attachText ? this->sourceTextRange(pos, size) : EMPTY_TEXT;
 
-    const auto& blobBuffer = text.empty()
-        ? builder.allocRunPos(fFont, SkToInt(size))
-        : builder.allocRunTextPos(fFont, SkToInt(size), SkToInt(text.width()));
+    // Hidden text inside the attached range, in text order, so it can be cut out.
+    // Several glyphs of one cluster share its text, so overlapping ranges are merged.
+    skia_private::STArray<4, TextRange, true> cuts;
+    size_t cutBytes = 0;
+    if (!text.empty()) {
+        skia_private::STArray<4, TextRange, true> clipped;
+        for (const auto& h : hiddenText) {
+            TextRange c(std::max(h.start, text.start), std::min(h.end, text.end));
+            if (c.start < c.end) {
+                clipped.push_back(c);
+            }
+        }
+        std::sort(clipped.begin(), clipped.end(),
+                  [](const TextRange& a, const TextRange& b) { return a.start < b.start; });
+        for (const auto& c : clipped) {
+            if (!cuts.empty() && c.start <= cuts.back().end) {
+                cuts.back().end = std::max(cuts.back().end, c.end);
+            } else {
+                cuts.push_back(c);
+            }
+        }
+        for (const auto& c : cuts) {
+            cutBytes += c.width();
+        }
+    }
+    const size_t textBytes = text.empty() ? 0 : text.width() - cutBytes;
 
-    sk_careful_memcpy(blobBuffer.glyphs, fGlyphs.data() + pos, size * sizeof(SkGlyphID));
+    const auto& blobBuffer = textBytes == 0
+        ? builder.allocRunPos(fFont, SkToInt(count))
+        : builder.allocRunTextPos(fFont, SkToInt(count), SkToInt(textBytes));
+
+    for (size_t i = 0; i < count; ++i) {
+        blobBuffer.glyphs[i] = fGlyphs[glyphAt(i)];
+    }
 
     // allocRunTextPos allocated two extra buffers that must be filled: utf8text gets
     // the source text, and clusters[i] gets the offset in that text where glyph i's
     // source character starts.
-    if (!text.empty()) {
-        sk_careful_memcpy(blobBuffer.utf8text,
-                          fOwner->text().data() + fClusterStart + text.start,
-                          text.width());
-        for (size_t i = 0; i < size; ++i) {
+    if (textBytes != 0) {
+        const char* source = fOwner->text().data() + fClusterStart;
+        char* out = blobBuffer.utf8text;
+        size_t from = text.start;
+        for (const auto& c : cuts) {
+            sk_careful_memcpy(out, source + from, c.start - from);
+            out += c.start - from;
+            from = c.end;
+        }
+        sk_careful_memcpy(out, source + from, text.end - from);
+
+        for (size_t i = 0; i < count; ++i) {
             // Rebase onto the attached text; clamping matters only when a blob
             // boundary splits a cluster.
-            size_t cluster = fClusterIndexes[i + pos];
-            cluster = std::min(std::max(cluster, text.start), text.end) - text.start;
-            blobBuffer.clusters[i] = SkToU32(cluster);
+            size_t cluster = fClusterIndexes[glyphAt(i)];
+            cluster = std::min(std::max(cluster, text.start), text.end);
+            size_t removed = 0;
+            for (const auto& c : cuts) {
+                if (c.end <= cluster) {
+                    removed += c.width();
+                }
+            }
+            blobBuffer.clusters[i] = SkToU32(cluster - text.start - removed);
         }
     }
 
     // Position = shaped position + justification shift + per-glyph offset.
-    for (size_t i = 0; i < size; ++i) {
-        auto point = fPositions[i + pos];
+    for (size_t i = 0; i < count; ++i) {
+        const size_t g = glyphAt(i);
+        auto point = fPositions[g];
         if (!fJustificationShifts.empty()) {
-            point.fX += fJustificationShifts[i + pos].fX;
+            point.fX += fJustificationShifts[g].fX;
         }
-        point += fOffsets[i + pos];
+        point += fOffsets[g];
         blobBuffer.points()[i] = point;
     }
 }
